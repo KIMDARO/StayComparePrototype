@@ -1,321 +1,52 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>StayCompare Lite</title>
-  <style>
-    :root { font-family: Arial, sans-serif; }
-    body { margin: 0; background: #f6f7fb; color: #111; }
-    header { padding: 16px 20px; background: white; border-bottom: 1px solid #e6e8ef; }
-    header h1 { margin: 0; font-size: 18px; }
-    main { max-width: 980px; margin: 0 auto; padding: 16px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .card { background: white; border: 1px solid #e6e8ef; border-radius: 12px; padding: 14px; }
-    label { display:block; font-size: 12px; margin-top: 10px; color: #333; }
-    input, textarea, select {
-      width: 100%; padding: 10px; margin-top: 6px;
-      border: 1px solid #cfd5e3; border-radius: 10px; font-size: 14px;
-      box-sizing: border-box;
-    }
-    textarea { min-height: 72px; resize: vertical; }
-    .row { display:flex; gap: 10px; }
-    .row > div { flex:1; }
-    button {
-      border: 0; background: #2b59ff; color: white; padding: 10px 12px;
-      border-radius: 10px; cursor: pointer; font-weight: 600;
-    }
-    button.secondary { background: #eef1ff; color: #1b2a7a; }
-    button.danger { background: #ff2b2b; }
-    button.ghost { background: transparent; color: #2b59ff; border: 1px solid #cfd5e3; }
-    .actions { display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
-    .tabs { display:flex; gap: 8px; margin-top: 8px; }
-    .tab { padding: 8px 10px; border-radius: 999px; border: 1px solid #cfd5e3; background: white; cursor:pointer; }
-    .tab.active { background: #2b59ff; color: white; border-color: #2b59ff; }
-    .list { display:flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-    .stay { display:grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px; border: 1px solid #e6e8ef; border-radius: 12px; background: #fff; }
-    .stay h3 { margin: 0; font-size: 15px; }
-    .muted { color:#555; font-size: 12px; margin-top: 4px; }
-    .price { font-weight: 800; font-size: 16px; }
-    .right { display:flex; gap: 8px; align-items: start; }
-    .pill { display:inline-block; font-size: 12px; padding: 4px 8px; border-radius: 999px; background:#eef1ff; color:#1b2a7a; margin-right: 6px; }
-    a { color:#2b59ff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    footer { padding: 20px; text-align:center; color:#666; font-size: 12px; }
-    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
-    /* Print styles for PDF */
-    @media print {
-      header, .no-print { display:none !important; }
-      body { background: white; }
-      main { max-width: none; padding: 0; }
-      .card { border: none; }
-      .stay { page-break-inside: avoid; }
-    }
-  </style>
-</head>
-<body>
-<header>
-  <h1>StayCompare Lite</h1>
-  <div class="muted">Add options • Compare total cost • Shortlist • Print to PDF</div>
-</header>
+function render() {
+  const visible = getVisibleStays();
+  listEl.innerHTML = "";
 
-<main>
-  <div class="grid">
-    <section class="card">
-      <h2 style="margin:0 0 6px 0; font-size:16px;">Add a stay</h2>
-      <div class="muted">Tip: keep it simple — you can paste links later.</div>
+  emptyEl.style.display = (visible.length === 0) ? "block" : "none";
 
-      <form id="stayForm" class="no-print">
-        <label>Stay name</label>
-        <input id="name" required placeholder="e.g., City Centre Apartment" />
+  visible.forEach(stay => {
+    const total = totalCost(stay);
 
-        <label>Location</label>
-        <input id="location" placeholder="e.g., Dungannon" />
+    const div = document.createElement("div");
+    div.className = "stay";
 
-        <div class="row">
-          <div>
-            <label>Nightly rate (£)</label>
-            <input id="nightlyRate" type="number" min="0" step="0.01" required />
+    const q = encodeURIComponent(`${stay.name} ${stay.location}`);
+
+    div.innerHTML = `
+      <div>
+        <h3>${escapeHtml(stay.name)} ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ''}</h3>
+        <div class="muted">
+          ${stay.location ? escapeHtml(stay.location) + " • " : ""}
+          ${money(stay.nightlyRate)} / night • ${stay.nights} nights • Fees ${money(stay.fees || 0)}
+        </div>
+        <div style="margin-top:6px;">
+          <span class="price">${money(total)}</span>
+          <span class="muted"> total</span>
+        </div>
+
+        ${stay.link ? `
+          <div class="muted" style="margin-top:6px;">
+            <a href="${stay.link}" target="_blank" rel="noopener">Open link</a>
           </div>
-          <div>
-            <label>Nights</label>
-            <input id="nights" type="number" min="1" step="1" required />
-          </div>
+        ` : ""}
+
+        <div class="muted" style="margin-top:6px;">
+          <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">
+            Search this place
+          </a>
         </div>
 
-        <label>Fees (£)</label>
-        <input id="fees" type="number" min="0" step="0.01" value="0" />
-
-        <label>Link (optional)</label>
-        <input id="link" type="url" placeholder="https://..." />
-
-        <label>Notes (optional)</label>
-        <textarea id="notes" placeholder="Commute, amenities, pros/cons..."></textarea>
-
-        <div class="actions" style="margin-top:12px;">
-          <button type="submit">Add stay</button>
-          <button type="button" class="secondary" id="clearAll">Clear all</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="no-print">
-        <h2 style="margin:0; font-size:16px;">Compare</h2>
-        <div class="tabs">
-          <button class="tab active" id="tabAll" type="button">All</button>
-          <button class="tab" id="tabFav" type="button">Shortlist</button>
-        </div>
-
-        <div class="actions" style="margin-top:10px;">
-          <label style="margin:0; font-size:12px;">Sort</label>
-          <select id="sortBy">
-            <option value="cheap">Cheapest total</option>
-            <option value="expensive">Most expensive total</option>
-            <option value="name">Name A–Z</option>
-          </select>
-
-          <button class="ghost" id="printBtn" type="button">Print / Save as PDF</button>
-        </div>
+        ${stay.notes ? `<div class="muted" style="margin-top:6px;">${escapeHtml(stay.notes)}</div>` : ""}
       </div>
 
-      <div id="list" class="list" style="margin-top:12px;"></div>
-      <div id="empty" class="muted" style="margin-top:12px; display:none;">
-        No stays yet. Add one on the left 👈
+      <div class="right no-print">
+        <button class="secondary" data-action="fav" data-id="${stay.id}">
+          ${stay.favourite ? "Unshortlist" : "Shortlist"}
+        </button>
+        <button class="danger" data-action="del" data-id="${stay.id}">Delete</button>
       </div>
-    </section>
-  </div>
+    `;
 
-  <footer class="no-print">
-    Built with HTML/CSS/JS • Data saved in your browser (LocalStorage)
-  </footer>
-</main>
-
-<script>
-  // ---------- helpers ----------
-  const LS_KEY = "staycompare_stays_v1";
-
-  function loadStays() {
-    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
-    catch { return []; }
-  }
-
-  function saveStays(stays) {
-    localStorage.setItem(LS_KEY, JSON.stringify(stays));
-  }
-
-  function money(n) {
-    const v = Number(n || 0);
-    return "£" + v.toFixed(2);
-  }
-
-  function totalCost(stay) {
-    return (Number(stay.nightlyRate) * Number(stay.nights)) + Number(stay.fees || 0);
-  }
-
-  function uid() {
-    return Math.random().toString(16).slice(2) + Date.now().toString(16);
-  }
-
-  // ---------- state ----------
-  let stays = loadStays();
-  let view = "all"; // "all" or "fav"
-
-  // ---------- elements ----------
-  const form = document.getElementById("stayForm");
-  const listEl = document.getElementById("list");
-  const emptyEl = document.getElementById("empty");
-  const sortByEl = document.getElementById("sortBy");
-  const tabAll = document.getElementById("tabAll");
-  const tabFav = document.getElementById("tabFav");
-  const printBtn = document.getElementById("printBtn");
-
-  // ---------- render ----------
-  function getVisibleStays() {
-    const filtered = view === "fav" ? stays.filter(s => s.favourite) : stays.slice();
-
-    const sortBy = sortByEl.value;
-    if (sortBy === "cheap") filtered.sort((a,b) => totalCost(a) - totalCost(b));
-    if (sortBy === "expensive") filtered.sort((a,b) => totalCost(b) - totalCost(a));
-    if (sortBy === "name") filtered.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
-
-    return filtered;
-  }
-  function escapeHtml(str) {
-    return String(str || "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-  
-  function render() {
-    const visible = getVisibleStays();
-    listEl.innerHTML = "";
-
-    emptyEl.style.display = (visible.length === 0) ? "block" : "none";
-
-    visible.forEach(stay => {
-      const total = totalCost(stay);
-
-      const div = document.createElement("div");
-      div.className = "stay";
-
-      const q = encodeURIComponent(`${stay.name} ${stay.location}`);
-
-div.innerHTML = `
-  <div>
-    <h3>${escapeHtml(stay.name)} ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ''}</h3>
-    <div class="muted">
-      ${stay.location ? escapeHtml(stay.location) + " • " : ""}
-      ${money(stay.nightlyRate)} / night • ${stay.nights} nights • Fees ${money(stay.fees || 0)}
-    </div>
-    <div style="margin-top:6px;">
-      <span class="price">${money(total)}</span>
-      <span class="muted"> total</span>
-    </div>
-
-    ${stay.link ? `
-      <div class="muted" style="margin-top:6px;">
-        <a href="${stay.link}" target="_blank" rel="noopener">Open link</a>
-      </div>
-    ` : ""}
-
-    <div class="muted" style="margin-top:6px;">
-      <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">
-        Search this place
-      </a>
-    </div>
-
-    ${stay.notes ? `<div class="muted" style="margin-top:6px;">${escapeHtml(stay.notes)}</div>` : ""}
-  </div>
-
-  <div class="right no-print">
-    <button class="secondary" data-action="fav" data-id="${stay.id}">
-      ${stay.favourite ? "Unshortlist" : "Shortlist"}
-    </button>
-    <button class="danger" data-action="del" data-id="${stay.id}">Delete</button>
-  </div>
-`;
-
-      listEl.appendChild(div);
-    });
-  }
-
-
-  // ---------- events ----------
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-
-    const stay = {
-      id: uid(),
-      name: document.getElementById("name").value.trim(),
-      location: document.getElementById("location").value.trim(),
-      nightlyRate: Number(document.getElementById("nightlyRate").value),
-      nights: Number(document.getElementById("nights").value),
-      fees: Number(document.getElementById("fees").value || 0),
-      link: document.getElementById("link").value.trim(),
-      notes: document.getElementById("notes").value.trim(),
-      favourite: false
-    };
-
-    stays.push(stay);
-    saveStays(stays);
-    form.reset();
-    document.getElementById("fees").value = 0;
-    render();
+    listEl.appendChild(div);
   });
-
-  document.getElementById("clearAll").addEventListener("click", () => {
-    if (!confirm("Clear all saved stays?")) return;
-    stays = [];
-    saveStays(stays);
-    render();
-  });
-
-  sortByEl.addEventListener("change", render);
-
-  tabAll.addEventListener("click", () => {
-    view = "all";
-    tabAll.classList.add("active");
-    tabFav.classList.remove("active");
-    render();
-  });
-
-  tabFav.addEventListener("click", () => {
-    view = "fav";
-    tabFav.classList.add("active");
-    tabAll.classList.remove("active");
-    render();
-  });
-
-  listEl.addEventListener("click", (e) => {
-    const btn = e.target.closest("button");
-    if (!btn) return;
-
-    const action = btn.getAttribute("data-action");
-    const id = btn.getAttribute("data-id");
-    const idx = stays.findIndex(s => s.id === id);
-    if (idx === -1) return;
-
-    if (action === "del") {
-      stays.splice(idx, 1);
-    } else if (action === "fav") {
-      stays[idx].favourite = !stays[idx].favourite;
-    }
-
-    saveStays(stays);
-    render();
-  });
-
-  printBtn.addEventListener("click", () => {
-    // Tip: switch to shortlist view before printing if you want
-    window.print();
-  });
-
-  // initial
-  render();
-</script>
-</body>
-</html>
+}
