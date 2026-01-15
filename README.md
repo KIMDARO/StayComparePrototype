@@ -3,6 +3,8 @@
 ## Overview
 StayCompare Lite is a small prototype web app I built to help compare accommodation options based on total cost. The idea came from wanting a simple way to compare different stays without relying on spreadsheets or constantly switching between tabs.
 
+I have been working on this protoype for a month so it is still fairly new and decided to upload it into my Github.
+
 This project is intentionally lightweight and focuses on clarity, usability, and core JavaScript fundamentals rather than advanced frameworks.
 
 ---
