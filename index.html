@@ -6,20 +6,25 @@
   <title>StayCompare Lite</title>
 
   <style>
-    body { margin:0; font-family:Arial,sans-serif; background:#f6f7fb; }
+    body { margin:0; font-family:Arial,sans-serif; background:#f6f7fb; color:#111; }
     header { background:white; padding:16px 20px; border-bottom:1px solid #e6e8ef; }
     header h1 { margin:0; font-size:18px; }
     main { max-width:1000px; margin:auto; padding:16px; }
+
     .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .card { background:white; border:1px solid #e6e8ef; border-radius:12px; padding:14px; }
-    label { font-size:12px; margin-top:10px; display:block; }
+
+    label { font-size:12px; margin-top:10px; display:block; color:#333; }
     input, textarea, select {
       width:100%; padding:10px; margin-top:6px;
       border:1px solid #cfd5e3; border-radius:10px;
+      box-sizing:border-box;
     }
-    textarea { resize:vertical; }
+    textarea { resize:vertical; min-height:72px; }
+
     .row { display:flex; gap:10px; }
     .row > div { flex:1; }
+
     button {
       background:#2b59ff; color:white; border:0;
       padding:10px 12px; border-radius:10px;
@@ -28,28 +33,39 @@
     button.secondary { background:#eef1ff; color:#1b2a7a; }
     button.danger { background:#ff2b2b; }
     button.ghost { background:transparent; border:1px solid #cfd5e3; color:#2b59ff; }
+
+    .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+
     .list { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
     .stay {
       display:grid; grid-template-columns:1fr auto;
       gap:10px; padding:12px;
       border:1px solid #e6e8ef; border-radius:12px;
+      background:white;
     }
-    .muted { font-size:12px; color:#555; margin-top:4px; }
-    .price { font-weight:800; font-size:16px; }
-    .right { display:flex; gap:8px; }
+    .muted { font-size:12px; color:#555; margin-top:6px; }
+    .price { font-weight:800; font-size:16px; margin-top:6px; }
+
+    .right { display:flex; gap:8px; align-items:start; }
     .pill {
-      font-size:12px; padding:4px 8px;
-      border-radius:999px; background:#eef1ff;
-      color:#1b2a7a; margin-left:6px;
+      display:inline-block; font-size:12px;
+      padding:4px 8px; border-radius:999px;
+      background:#eef1ff; color:#1b2a7a; margin-left:6px;
     }
+
     a { color:#2b59ff; text-decoration:none; }
     a:hover { text-decoration:underline; }
+
     footer { text-align:center; font-size:12px; color:#666; padding:20px; }
+
     @media(max-width:800px){ .grid{grid-template-columns:1fr;} }
 
     @media print {
-      header, .no-print { display:none; }
+      header, .no-print { display:none !important; }
       body { background:white; }
+      main { max-width:none; padding:0; }
+      .card { border:none; }
+      .stay { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -62,162 +78,248 @@
 
 <main>
   <div class="grid">
-    <!-- FORM -->
+
+    <!-- ADD FORM -->
     <section class="card">
-      <h2>Add a stay</h2>
+      <h2 style="margin:0 0 8px 0; font-size:16px;">Add a stay</h2>
+      <div class="muted" style="margin-top:0;">Tip: enter the basics first — add links/notes later.</div>
 
       <form id="stayForm" class="no-print">
         <label>Stay name</label>
-        <input id="name" required>
+        <input id="name" required placeholder="e.g., City Centre Apartment" />
 
         <label>Location</label>
-        <input id="location">
+        <input id="location" placeholder="e.g., Exeter" />
 
         <div class="row">
           <div>
             <label>Nightly rate (£)</label>
-            <input id="nightlyRate" type="number" required>
+            <input id="nightlyRate" type="number" min="0" step="0.01" required />
           </div>
           <div>
             <label>Nights</label>
-            <input id="nights" type="number" required>
+            <input id="nights" type="number" min="1" step="1" required />
           </div>
         </div>
 
         <label>Fees (£)</label>
-        <input id="fees" type="number" value="0">
+        <input id="fees" type="number" min="0" step="0.01" value="0" />
 
-        <label>Link</label>
-        <input id="link" type="url">
+        <label>Link (optional)</label>
+        <input id="link" type="url" placeholder="https://..." />
 
-        <label>Notes</label>
-        <textarea id="notes"></textarea>
+        <label>Notes (optional)</label>
+        <textarea id="notes" placeholder="Commute, amenities, pros/cons..."></textarea>
 
-        <div style="margin-top:12px;">
+        <div class="actions">
           <button type="submit">Add stay</button>
           <button type="button" id="clearAll" class="secondary">Clear all</button>
         </div>
       </form>
     </section>
 
-    <!-- LIST -->
+    <!-- COMPARE LIST -->
     <section class="card">
       <div class="no-print">
-        <select id="sortBy">
-          <option value="cheap">Cheapest total</option>
-          <option value="expensive">Most expensive</option>
-          <option value="name">Name A–Z</option>
-        </select>
+        <h2 style="margin:0; font-size:16px;">Compare</h2>
 
-        <button id="printBtn" class="ghost">Print / Save as PDF</button>
+        <div class="actions" style="margin-top:10px;">
+          <label style="margin:0;">Sort</label>
+          <select id="sortBy">
+            <option value="cheap">Cheapest total</option>
+            <option value="expensive">Most expensive total</option>
+            <option value="name">Name A–Z</option>
+          </select>
+
+          <button id="printBtn" class="ghost" type="button">Print / Save as PDF</button>
+        </div>
       </div>
 
       <div id="list" class="list"></div>
+      <div id="empty" class="muted" style="display:none;">No stays yet — add one on the left 👈</div>
     </section>
+
   </div>
 
   <footer class="no-print">
-    Built with HTML/CSS/JS • Uses LocalStorage
+    Built with HTML/CSS/JS • Data saved in your browser (LocalStorage)
   </footer>
 </main>
 
 <script>
-const LS_KEY = "staycompare_stays";
-let stays = JSON.parse(localStorage.getItem(LS_KEY)) || [];
+  const LS_KEY = "staycompare_stays_v2";
 
-function save() {
-  localStorage.setItem(LS_KEY, JSON.stringify(stays));
-}
+  function loadStays() {
+    try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+    catch { return []; }
+  }
 
-function money(n){ return "£" + Number(n).toFixed(2); }
+  function saveStays(stays) {
+    localStorage.setItem(LS_KEY, JSON.stringify(stays));
+  }
 
-function escapeHtml(str){
-  return String(str||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
+  function money(n) {
+    return "£" + (Number(n || 0)).toFixed(2);
+  }
 
-function render(){
-  const list = document.getElementById("list");
-  list.innerHTML = "";
+  function escapeHtml(str) {
+    return String(str || "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
 
-  const sort = document.getElementById("sortBy").value;
-  if(sort==="cheap") stays.sort((a,b)=>a.total-b.total);
-  if(sort==="expensive") stays.sort((a,b)=>b.total-a.total);
-  if(sort==="name") stays.sort((a,b)=>a.name.localeCompare(b.name));
+  function totalCost(stay) {
+    return (Number(stay.nightlyRate) * Number(stay.nights)) + Number(stay.fees || 0);
+  }
 
-  stays.forEach(stay=>{
-    const q = encodeURIComponent(`${stay.name} ${stay.location}`);
-    const div = document.createElement("div");
-    div.className="stay";
+  function uid() {
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
 
-    div.innerHTML = `
-      <div>
-        <h3>${escapeHtml(stay.name)}
-        ${stay.fav?'<span class="pill">Shortlisted</span>':''}</h3>
+  let stays = loadStays();
 
-        <div class="muted">${escapeHtml(stay.location)}</div>
-        <div class="price">${money(stay.total)}</div>
+  const form = document.getElementById("stayForm");
+  const listEl = document.getElementById("list");
+  const emptyEl = document.getElementById("empty");
+  const sortByEl = document.getElementById("sortBy");
+  const printBtn = document.getElementById("printBtn");
+  const clearAllBtn = document.getElementById("clearAll");
 
-        ${stay.link?`<div class="muted"><a href="${stay.link}" target="_blank">Open link</a></div>`:""}
-        <div class="muted">
-          <a href="https://www.google.com/search?q=${q}" target="_blank">
-            Search this place
-          </a>
+  function render() {
+    listEl.innerHTML = "";
+
+    const sortBy = sortByEl.value;
+    const sorted = stays.slice();
+
+    if (sortBy === "cheap") sorted.sort((a,b) => totalCost(a) - totalCost(b));
+    if (sortBy === "expensive") sorted.sort((a,b) => totalCost(b) - totalCost(a));
+    if (sortBy === "name") sorted.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+
+    emptyEl.style.display = sorted.length === 0 ? "block" : "none";
+
+    sorted.forEach((stay) => {
+      const div = document.createElement("div");
+      div.className = "stay";
+
+      const q = encodeURIComponent(`${stay.name} ${stay.location}`);
+
+      div.innerHTML = `
+        <div>
+          <h3 style="margin:0; font-size:15px;">
+            ${escapeHtml(stay.name)}
+            ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ''}
+          </h3>
+
+          <div class="muted">
+            ${stay.location ? escapeHtml(stay.location) + " • " : ""}
+            ${money(stay.nightlyRate)} / night • ${stay.nights} nights • Fees ${money(stay.fees || 0)}
+          </div>
+
+          <div class="price">${money(totalCost(stay))} <span class="muted" style="font-weight:normal;">total</span></div>
+
+          ${stay.link ? `
+            <div class="muted">
+              <a href="${stay.link}" target="_blank" rel="noopener">Open link</a>
+            </div>
+          ` : ""}
+
+          <div class="muted">
+            <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">
+              Search this place
+            </a>
+          </div>
+
+          ${stay.notes ? `<div class="muted">${escapeHtml(stay.notes)}</div>` : ""}
         </div>
 
-        ${stay.notes?`<div class="muted">${escapeHtml(stay.notes)}</div>`:""}
-      </div>
+        <div class="right no-print">
+          <button class="secondary" data-action="fav" data-id="${stay.id}">
+            ${stay.favourite ? "Unshortlist" : "Shortlist"}
+          </button>
+          <button class="danger" data-action="del" data-id="${stay.id}">Delete</button>
+        </div>
+      `;
 
-      <div class="right no-print">
-        <button class="secondary" onclick="toggleFav('${stay.id}')">
-          ${stay.fav?"Unshortlist":"Shortlist"}
-        </button>
-        <button class="danger" onclick="del('${stay.id}')">Delete</button>
-      </div>
-    `;
-    list.appendChild(div);
-  });
-}
+      listEl.appendChild(div);
+    });
+  }
 
-function toggleFav(id){
-  const s = stays.find(x=>x.id===id);
-  s.fav=!s.fav;
-  save(); render();
-}
+  // Handle buttons (shortlist/delete)
+  listEl.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
 
-function del(id){
-  stays = stays.filter(s=>s.id!==id);
-  save(); render();
-}
+    const action = btn.getAttribute("data-action");
+    const id = btn.getAttribute("data-id");
 
-document.getElementById("stayForm").onsubmit=e=>{
-  e.preventDefault();
-  const rate = +nightlyRate.value;
-  const nights = +nights.value;
+    const idx = stays.findIndex(s => s.id === id);
+    if (idx === -1) return;
 
-  stays.push({
-    id:Date.now().toString(),
-    name:name.value,
-    location:location.value,
-    total:rate*nights + (+fees.value||0),
-    link:link.value,
-    notes:notes.value,
-    fav:false
+    if (action === "del") {
+      stays.splice(idx, 1);
+    } else if (action === "fav") {
+      stays[idx].favourite = !stays[idx].favourite;
+    }
+
+    saveStays(stays);
+    render();
   });
 
-  save();
-  e.target.reset();
-  fees.value=0;
+  // Add stay
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value.trim();
+    const location = document.getElementById("location").value.trim();
+    const nightlyRate = Number(document.getElementById("nightlyRate").value);
+    const nights = Number(document.getElementById("nights").value);
+    const fees = Number(document.getElementById("fees").value || 0);
+    const link = document.getElementById("link").value.trim();
+    const notes = document.getElementById("notes").value.trim();
+
+    if (!name) {
+      alert("Please enter a Stay name.");
+      return;
+    }
+    if (!nightlyRate || !nights) {
+      alert("Please enter Nightly rate and Nights.");
+      return;
+    }
+
+    stays.push({
+      id: uid(),
+      name,
+      location,
+      nightlyRate,
+      nights,
+      fees,
+      link,
+      notes,
+      favourite: false
+    });
+
+    saveStays(stays);
+    form.reset();
+    document.getElementById("fees").value = 0;
+    render();
+  });
+
+  // Clear all
+  clearAllBtn.addEventListener("click", () => {
+    if (!confirm("Clear all saved stays?")) return;
+    stays = [];
+    saveStays(stays);
+    render();
+  });
+
+  // Sort / print
+  sortByEl.addEventListener("change", render);
+  printBtn.addEventListener("click", () => window.print());
+
   render();
-};
-
-document.getElementById("clearAll").onclick=()=>{
-  if(confirm("Clear all?")){ stays=[]; save(); render(); }
-};
-
-document.getElementById("sortBy").onchange=render;
-document.getElementById("printBtn").onclick=()=>window.print();
-
-render();
 </script>
 </body>
 </html>
