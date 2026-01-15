@@ -135,6 +135,12 @@
         </div>
       </div>
 
+      <label class="no-print" style="font-size:12px;">
+        <input type="checkbox" id="onlyFav" />
+        Show shortlisted only
+      </label>
+
+
       <div id="list" class="list"></div>
       <div id="empty" class="muted" style="display:none;">No stays yet — add one on the left 👈</div>
     </section>
@@ -188,11 +194,20 @@
   const printBtn = document.getElementById("printBtn");
   const clearAllBtn = document.getElementById("clearAll");
 
+  const onlyFavEl = document.getElementById("onlyFav");
+  onlyFavEl.addEventListener("change", render);
+
+
   function render() {
     listEl.innerHTML = "";
 
     const sortBy = sortByEl.value;
     const sorted = stays.slice();
+    let visible = sorted;
+    if (onlyFavEl.checked) {
+      visible = visible.filter(s => s.favourite);
+    }
+
 
     if (sortBy === "cheap") sorted.sort((a,b) => totalCost(a) - totalCost(b));
     if (sortBy === "expensive") sorted.sort((a,b) => totalCost(b) - totalCost(a));
@@ -200,7 +215,7 @@
 
     emptyEl.style.display = sorted.length === 0 ? "block" : "none";
 
-    sorted.forEach((stay) => {
+    visible.forEach((stay) => {
       const div = document.createElement("div");
       div.className = "stay";
 
