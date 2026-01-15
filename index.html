@@ -6,154 +6,405 @@
   <title>StayCompare Lite</title>
 
   <style>
-    body { margin:0; font-family:Arial,sans-serif; background:#f6f7fb; color:#111; }
-    header { background:white; padding:16px 20px; border-bottom:1px solid #e6e8ef; }
-    header h1 { margin:0; font-size:18px; }
-    main { max-width:1000px; margin:auto; padding:16px; }
-
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .card { background:white; border:1px solid #e6e8ef; border-radius:12px; padding:14px; }
-
-    label { font-size:12px; margin-top:10px; display:block; color:#333; }
-    input, textarea, select {
-      width:100%; padding:10px; margin-top:6px;
-      border:1px solid #cfd5e3; border-radius:10px;
-      box-sizing:border-box;
-    }
-    textarea { resize:vertical; min-height:72px; }
-
-    .row { display:flex; gap:10px; }
-    .row > div { flex:1; }
-
-    button {
-      background:#2b59ff; color:white; border:0;
-      padding:10px 12px; border-radius:10px;
-      cursor:pointer; font-weight:600;
-    }
-    button.secondary { background:#eef1ff; color:#1b2a7a; }
-    button.danger { background:#ff2b2b; }
-    button.ghost { background:transparent; border:1px solid #cfd5e3; color:#2b59ff; }
-
-    .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
-
-    .list { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
-    .stay {
-      display:grid; grid-template-columns:1fr auto;
-      gap:10px; padding:12px;
-      border:1px solid #e6e8ef; border-radius:12px;
-      background:white;
-    }
-    .muted { font-size:12px; color:#555; margin-top:6px; }
-    .price { font-weight:800; font-size:16px; margin-top:6px; }
-
-    .right { display:flex; gap:8px; align-items:start; }
-    .pill {
-      display:inline-block; font-size:12px;
-      padding:4px 8px; border-radius:999px;
-      background:#eef1ff; color:#1b2a7a; margin-left:6px;
+    :root{
+      --bg1:#0b1220;
+      --bg2:#0a2a4a;
+      --card: rgba(255,255,255,0.08);
+      --card2: rgba(255,255,255,0.12);
+      --border: rgba(255,255,255,0.14);
+      --text:#eaf0ff;
+      --muted: rgba(234,240,255,0.72);
+      --accent:#7c5cff;
+      --accent2:#22c55e;
+      --danger:#ff4d4d;
+      --shadow: 0 20px 50px rgba(0,0,0,0.35);
+      --radius: 18px;
     }
 
-    a { color:#2b59ff; text-decoration:none; }
-    a:hover { text-decoration:underline; }
+    *{ box-sizing:border-box; }
 
-    footer { text-align:center; font-size:12px; color:#666; padding:20px; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:var(--text);
+      background:
+        radial-gradient(900px 500px at 20% 0%, rgba(124,92,255,0.45), transparent 55%),
+        radial-gradient(900px 500px at 80% 10%, rgba(34,197,94,0.25), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+    }
 
-    @media(max-width:800px){ .grid{grid-template-columns:1fr;} }
+    header{
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(10,18,32,0.55);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
 
+    .wrap{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px 18px;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+
+    .brand{
+      display:flex; flex-direction:column; gap:4px;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:0.2px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .badge{
+      font-size:12px;
+      padding:4px 10px;
+      border-radius:999px;
+      background: rgba(124,92,255,0.18);
+      border: 1px solid rgba(124,92,255,0.35);
+      color: #eae4ff;
+    }
+
+    .subtitle{
+      margin:0;
+      font-size:12px;
+      color: var(--muted);
+    }
+
+    main .wrap{ padding-top: 18px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 16px;
+      align-items:start;
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .card h2{
+      margin: 0 0 10px 0;
+      font-size: 15px;
+      letter-spacing: 0.2px;
+    }
+
+    .hint{
+      margin: 0 0 14px 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    label{
+      display:block;
+      font-size:12px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    input, textarea, select{
+      width:100%;
+      margin-top: 6px;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.20);
+      color: var(--text);
+      outline: none;
+    }
+
+    input::placeholder, textarea::placeholder{
+      color: rgba(234,240,255,0.45);
+    }
+
+    input:focus, textarea:focus, select:focus{
+      border-color: rgba(124,92,255,0.6);
+      box-shadow: 0 0 0 4px rgba(124,92,255,0.15);
+    }
+
+    textarea{ min-height: 86px; resize: vertical; }
+
+    .row{
+      display:flex;
+      gap: 10px;
+    }
+    .row > div{ flex:1; }
+
+    .actions{
+      display:flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      align-items:center;
+    }
+
+    button{
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 12px;
+      cursor:pointer;
+      font-weight: 700;
+      color: #0b1220;
+      background: linear-gradient(135deg, var(--accent), #9b87ff);
+      transition: transform 0.06s ease, filter 0.2s ease, opacity 0.2s ease;
+    }
+    button:hover{ filter: brightness(1.06); }
+    button:active{ transform: translateY(1px); }
+
+    button.secondary{
+      color: var(--text);
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    button.ghost{
+      color: var(--text);
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+    button.ghost:hover{
+      background: rgba(255,255,255,0.08);
+    }
+
+    button.danger{
+      color: white;
+      background: linear-gradient(135deg, var(--danger), #ff7a7a);
+    }
+
+    .toolbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .toolbar-left{
+      display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+
+    .toggle{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color: var(--muted);
+      user-select:none;
+    }
+
+    .toggle input{ width:16px; height:16px; margin:0; }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .stay{
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 14px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+    }
+
+    .stay h3{
+      margin:0;
+      font-size: 15px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap: wrap;
+    }
+
+    .pill{
+      font-size:12px;
+      padding:4px 10px;
+      border-radius:999px;
+      background: rgba(34,197,94,0.18);
+      border: 1px solid rgba(34,197,94,0.30);
+      color: #d8ffe7;
+    }
+
+    .muted{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .price{
+      font-size: 18px;
+      font-weight: 900;
+      margin-top: 10px;
+    }
+
+    .links{
+      display:flex;
+      gap: 12px;
+      flex-wrap:wrap;
+      margin-top: 8px;
+    }
+
+    a{
+      color: #d9d3ff;
+      text-decoration:none;
+      font-size: 12px;
+      border-bottom: 1px dashed rgba(217,211,255,0.45);
+      padding-bottom: 2px;
+    }
+    a:hover{ opacity:0.9; }
+
+    .right{
+      display:flex;
+      gap: 8px;
+      align-items:start;
+      justify-content:flex-end;
+      flex-wrap: wrap;
+    }
+
+    .empty{
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0.9;
+    }
+
+    footer{
+      text-align:center;
+      color: rgba(234,240,255,0.55);
+      font-size: 12px;
+      padding: 18px;
+    }
+
+    @media(max-width: 920px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    /* Print styles */
     @media print {
       header, .no-print { display:none !important; }
-      body { background:white; }
-      main { max-width:none; padding:0; }
-      .card { border:none; }
-      .stay { page-break-inside: avoid; }
+      body { background: white; color: #111; }
+      .card, .stay { box-shadow: none !important; border: 1px solid #ddd !important; background: white !important; }
+      a { color: #111 !important; border-bottom: none !important; }
+      .pill, .badge { border: 1px solid #ddd !important; background: #f5f5f5 !important; color: #111 !important; }
     }
   </style>
 </head>
 
 <body>
 <header>
-  <h1>StayCompare Lite</h1>
-  <div class="muted">Add options • Compare total cost • Shortlist • Print to PDF</div>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <h1>StayCompare Lite <span class="badge">Startup prototype</span></h1>
+        <p class="subtitle">Add options • Compare total cost • Shortlist • Search images • Print to PDF</p>
+      </div>
+      <div class="no-print" style="font-size:12px; color:var(--muted);">
+        Local-only • Saves automatically
+      </div>
+    </div>
+  </div>
 </header>
 
 <main>
-  <div class="grid">
+  <div class="wrap">
+    <div class="grid">
 
-    <!-- ADD FORM -->
-    <section class="card">
-      <h2 style="margin:0 0 8px 0; font-size:16px;">Add a stay</h2>
-      <div class="muted" style="margin-top:0;">Tip: enter the basics first — add links/notes later.</div>
+      <!-- ADD FORM -->
+      <section class="card">
+        <h2>Add a stay</h2>
+        <p class="hint">Keep it simple: name, location, and cost. Add link/notes if you want.</p>
 
-      <form id="stayForm" class="no-print">
-        <label>Stay name</label>
-        <input id="name" required placeholder="e.g., City Centre Apartment" />
+        <form id="stayForm" class="no-print">
+          <label>Stay name</label>
+          <input id="name" required placeholder="e.g., City Centre Apartment" />
 
-        <label>Location</label>
-        <input id="location" placeholder="e.g., Exeter" />
+          <label>Location</label>
+          <input id="location" placeholder="e.g., Exeter" />
 
-        <div class="row">
-          <div>
-            <label>Nightly rate (£)</label>
-            <input id="nightlyRate" type="number" min="0" step="0.01" required />
+          <div class="row">
+            <div>
+              <label>Nightly rate (£)</label>
+              <input id="nightlyRate" type="number" min="0" step="0.01" required placeholder="50" />
+            </div>
+            <div>
+              <label>Nights</label>
+              <input id="nights" type="number" min="1" step="1" required placeholder="3" />
+            </div>
           </div>
-          <div>
-            <label>Nights</label>
-            <input id="nights" type="number" min="1" step="1" required />
+
+          <label>Fees (£)</label>
+          <input id="fees" type="number" min="0" step="0.01" value="0" />
+
+          <label>Link (optional)</label>
+          <input id="link" type="url" placeholder="https://..." />
+
+          <label>Notes (optional)</label>
+          <textarea id="notes" placeholder="Commute, amenities, pros/cons..."></textarea>
+
+          <div class="actions">
+            <button type="submit">Add stay</button>
+            <button type="button" id="clearAll" class="secondary">Clear all</button>
           </div>
-        </div>
+        </form>
+      </section>
 
-        <label>Fees (£)</label>
-        <input id="fees" type="number" min="0" step="0.01" value="0" />
+      <!-- COMPARE LIST -->
+      <section class="card">
+        <div class="toolbar no-print">
+          <div class="toolbar-left">
+            <label style="margin:0; color:var(--muted); font-size:12px;">Sort</label>
+            <select id="sortBy" style="width:auto; min-width: 170px;">
+              <option value="cheap">Cheapest total</option>
+              <option value="expensive">Most expensive total</option>
+              <option value="name">Name A–Z</option>
+            </select>
 
-        <label>Link (optional)</label>
-        <input id="link" type="url" placeholder="https://..." />
-
-        <label>Notes (optional)</label>
-        <textarea id="notes" placeholder="Commute, amenities, pros/cons..."></textarea>
-
-        <div class="actions">
-          <button type="submit">Add stay</button>
-          <button type="button" id="clearAll" class="secondary">Clear all</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- COMPARE LIST -->
-    <section class="card">
-      <div class="no-print">
-        <h2 style="margin:0; font-size:16px;">Compare</h2>
-
-        <div class="actions" style="margin-top:10px;">
-          <label style="margin:0;">Sort</label>
-          <select id="sortBy">
-            <option value="cheap">Cheapest total</option>
-            <option value="expensive">Most expensive total</option>
-            <option value="name">Name A–Z</option>
-          </select>
+            <label class="toggle">
+              <input type="checkbox" id="onlyFav" />
+              Show shortlisted only
+            </label>
+          </div>
 
           <button id="printBtn" class="ghost" type="button">Print / Save as PDF</button>
         </div>
-      </div>
 
-      <label class="no-print" style="font-size:12px;">
-        <input type="checkbox" id="onlyFav" />
-        Show shortlisted only
-      </label>
+        <div id="list" class="list"></div>
+        <div id="empty" class="empty" style="display:none;">No stays yet — add one on the left 👈</div>
+      </section>
 
+    </div>
 
-      <div id="list" class="list"></div>
-      <div id="empty" class="muted" style="display:none;">No stays yet — add one on the left 👈</div>
-    </section>
-
+    <footer class="no-print">
+      Built with HTML/CSS/JS • Stored in your browser (LocalStorage)
+    </footer>
   </div>
-
-  <footer class="no-print">
-    Built with HTML/CSS/JS • Data saved in your browser (LocalStorage)
-  </footer>
 </main>
 
 <script>
-  const LS_KEY = "staycompare_stays_v2";
+  const LS_KEY = "staycompare_stays_startup_v1";
 
   function loadStays() {
     try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
@@ -193,29 +444,25 @@
   const sortByEl = document.getElementById("sortBy");
   const printBtn = document.getElementById("printBtn");
   const clearAllBtn = document.getElementById("clearAll");
-
   const onlyFavEl = document.getElementById("onlyFav");
-  onlyFavEl.addEventListener("change", render);
-
 
   function render() {
     listEl.innerHTML = "";
 
     const sortBy = sortByEl.value;
-    const sorted = stays.slice();
-    let visible = sorted;
+    let items = stays.slice();
+
     if (onlyFavEl.checked) {
-      visible = visible.filter(s => s.favourite);
+      items = items.filter(s => s.favourite);
     }
 
+    if (sortBy === "cheap") items.sort((a,b) => totalCost(a) - totalCost(b));
+    if (sortBy === "expensive") items.sort((a,b) => totalCost(b) - totalCost(a));
+    if (sortBy === "name") items.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
 
-    if (sortBy === "cheap") sorted.sort((a,b) => totalCost(a) - totalCost(b));
-    if (sortBy === "expensive") sorted.sort((a,b) => totalCost(b) - totalCost(a));
-    if (sortBy === "name") sorted.sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+    emptyEl.style.display = items.length === 0 ? "block" : "none";
 
-    emptyEl.style.display = sorted.length === 0 ? "block" : "none";
-
-    visible.forEach((stay) => {
+    items.forEach((stay) => {
       const div = document.createElement("div");
       div.className = "stay";
 
@@ -223,7 +470,7 @@
 
       div.innerHTML = `
         <div>
-          <h3 style="margin:0; font-size:15px;">
+          <h3>
             ${escapeHtml(stay.name)}
             ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ''}
           </h3>
@@ -233,17 +480,15 @@
             ${money(stay.nightlyRate)} / night • ${stay.nights} nights • Fees ${money(stay.fees || 0)}
           </div>
 
-          <div class="price">${money(totalCost(stay))} <span class="muted" style="font-weight:normal;">total</span></div>
+          <div class="price">
+            ${money(totalCost(stay))}
+            <span class="muted" style="font-weight:normal;"> total</span>
+          </div>
 
-          ${stay.link ? `
-            <div class="muted">
-              <a href="${stay.link}" target="_blank" rel="noopener">Open link</a>
-            </div>
-          ` : ""}
-
-          <div class="muted">
-            <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">
-              Search this place
+          <div class="links">
+            ${stay.link ? `<a href="${stay.link}" target="_blank" rel="noopener">Open link</a>` : ""}
+            <a href="https://www.google.com/search?tbm=isch&q=${q}" target="_blank" rel="noopener">
+              Search images
             </a>
           </div>
 
@@ -262,7 +507,7 @@
     });
   }
 
-  // Handle buttons (shortlist/delete)
+  // shortlist/delete buttons
   listEl.addEventListener("click", (e) => {
     const btn = e.target.closest("button");
     if (!btn) return;
@@ -283,7 +528,7 @@
     render();
   });
 
-  // Add stay
+  // add stay
   form.addEventListener("submit", (e) => {
     e.preventDefault();
 
@@ -295,14 +540,8 @@
     const link = document.getElementById("link").value.trim();
     const notes = document.getElementById("notes").value.trim();
 
-    if (!name) {
-      alert("Please enter a Stay name.");
-      return;
-    }
-    if (!nightlyRate || !nights) {
-      alert("Please enter Nightly rate and Nights.");
-      return;
-    }
+    if (!name) { alert("Please enter a Stay name."); return; }
+    if (!nightlyRate || !nights) { alert("Please enter Nightly rate and Nights."); return; }
 
     stays.push({
       id: uid(),
@@ -322,7 +561,7 @@
     render();
   });
 
-  // Clear all
+  // clear all
   clearAllBtn.addEventListener("click", () => {
     if (!confirm("Clear all saved stays?")) return;
     stays = [];
@@ -330,8 +569,9 @@
     render();
   });
 
-  // Sort / print
+  // sort / print / toggle
   sortByEl.addEventListener("change", render);
+  onlyFavEl.addEventListener("change", render);
   printBtn.addEventListener("click", () => window.print());
 
   render();
