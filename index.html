@@ -193,28 +193,43 @@
 
       const div = document.createElement("div");
       div.className = "stay";
-      div.innerHTML = `
-        <div>
-          <h3>${escapeHtml(stay.name)} ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ''}</h3>
-          <div class="muted">
-            ${stay.location ? escapeHtml(stay.location) + " • " : ""}
-            ${money(stay.nightlyRate)} / night • ${stay.nights} nights • Fees ${money(stay.fees || 0)}
-          </div>
-          <div style="margin-top:6px;">
-            <span class="price">${money(total)}</span>
-            <span class="muted"> total</span>
-          </div>
-          ${stay.link ? `<div class="muted" style="margin-top:6px;"><a href="${stay.link}" target="_blank" rel="noopener">Open link</a></div>` : ""}
-          ${stay.notes ? `<div class="muted" style="margin-top:6px;">${escapeHtml(stay.notes)}</div>` : ""}
-        </div>
-        <div class="right no-print">
-          <button class="secondary" data-action="fav" data-id="${stay.id}">${stay.favourite ? "Unshortlist" : "Shortlist"}</button>
-          <button class="danger" data-action="del" data-id="${stay.id}">Delete</button>
-        </div>
-      `;
-      listEl.appendChild(div);
-    });
-  }
+
+      const q = encodeURIComponent(`${stay.name} ${stay.location}`);
+
+div.innerHTML = `
+  <div>
+    <h3>${escapeHtml(stay.name)} ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ''}</h3>
+    <div class="muted">
+      ${stay.location ? escapeHtml(stay.location) + " • " : ""}
+      ${money(stay.nightlyRate)} / night • ${stay.nights} nights • Fees ${money(stay.fees || 0)}
+    </div>
+    <div style="margin-top:6px;">
+      <span class="price">${money(total)}</span>
+      <span class="muted"> total</span>
+    </div>
+
+    ${stay.link ? `
+      <div class="muted" style="margin-top:6px;">
+        <a href="${stay.link}" target="_blank" rel="noopener">Open link</a>
+      </div>
+    ` : ""}
+
+    <div class="muted" style="margin-top:6px;">
+      <a href="https://www.google.com/search?q=${q}" target="_blank" rel="noopener">
+        Search this place
+      </a>
+    </div>
+
+    ${stay.notes ? `<div class="muted" style="margin-top:6px;">${escapeHtml(stay.notes)}</div>` : ""}
+  </div>
+
+  <div class="right no-print">
+    <button class="secondary" data-action="fav" data-id="${stay.id}">
+      ${stay.favourite ? "Unshortlist" : "Shortlist"}
+    </button>
+    <button class="danger" data-action="del" data-id="${stay.id}">Delete</button>
+  </div>
+`;
 
   function escapeHtml(str) {
     return String(str || "")
