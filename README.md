@@ -41,6 +41,9 @@ The app now includes a lightweight local backend to proxy live search results.
 3. Open:
    - [http://localhost:3000](http://localhost:3000)
 
+*This can also be automatically deployed using this link:
+- https://kimdaro.github.io/StayComparePrototype/
+
 ---
 
 ## Why I built it
