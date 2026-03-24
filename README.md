@@ -27,8 +27,19 @@ All data is stored locally in the browser, so nothing is uploaded or shared.
 - **CSS** for styling and layout (startup-style UI)  
 - **Vanilla JavaScript** for logic and interactivity  
 - **LocalStorage** for saving data between sessions  
+- **Node.js + Express** (local API) for live web stay search
 
-No external libraries or backend services are used.
+The app now includes a lightweight local backend to proxy live search results.
+
+---
+
+## Run locally
+1. Install dependencies:
+   - `npm install`
+2. Start the app:
+   - `npm run dev`
+3. Open:
+   - [http://localhost:3000](http://localhost:3000)
 
 ---
 

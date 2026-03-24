@@ -1,0 +1,20 @@
+{
+  "name": "staycompare-site",
+  "version": "1.0.0",
+  "description": "StayCompare is a small prototype web app I built to help compare accommodation options based on total cost. The idea came from wanting a simple way to compare different stays without relying on spreadsheets or constantly switching between tabs.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "axios": "^1.13.6",
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
