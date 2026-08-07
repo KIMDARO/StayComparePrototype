@@ -1,245 +1,164 @@
-<!--
-StayCompare — Prototype Project
-
-Overview:
-This is an early-stage prototype web application built to explore ideas around
-comparing accommodation options by total cost. It is not a final product.
-
-Purpose:
-The goal of this project is to practise core front-end development skills,
-including JavaScript state management, DOM manipulation, and basic UI design,
-without relying on frameworks or a backend.
-
-Features:
-- Add and compare accommodation options
-- Automatically calculate total cost
-- Shortlist favourite stays
-- Filter to view shortlisted options only
-- Open listing links and search for images
-- Export comparisons using print-to-PDF
-
-Technical Notes:
-- Built with HTML, CSS, and vanilla JavaScript
-- Uses LocalStorage to persist data in the browser
-- No external libraries or backend services are used
-
-Status:
-Prototype only. Features, design, and structure would be refined
-in a production-ready version.
--->
-
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>StayCompare</title>
+  <title>StayCompare — Student accommodation by region</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
-
 <body>
-<header>
-  <div class="wrap">
-    <div class="topbar">
-      <div class="brand">
-        <h1>StayCompare Lite <span class="badge">Startup prototype</span></h1>
-        <p class="subtitle">Add options • Compare total cost • Shortlist • Search images • Print to PDF</p>
-      </div>
-      <div class="no-print" style="font-size:12px; color:var(--muted);">
-        Local-only • Saves automatically
-      </div>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="shell header-row">
+      <a class="logo" href="#" id="logoHome" aria-label="StayCompare home">
+        <span class="logo-mark" aria-hidden="true"></span>
+        <span class="logo-text">StayCompare</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <button type="button" class="nav-btn is-active" data-view="search">Search</button>
+        <button type="button" class="nav-btn" data-view="saved">Saved <span id="savedCount" class="count-chip">0</span></button>
+        <button type="button" class="nav-btn" data-view="compare">Compare <span id="compareCount" class="count-chip">0</span></button>
+      </nav>
     </div>
-  </div>
-</header>
+  </header>
 
-<main>
-  <div class="wrap">
-    <div class="grid">
+  <main>
+    <!-- SEARCH / DISCOVER -->
+    <section id="view-search" class="view is-active">
+      <div class="hero">
+        <div class="shell hero-inner">
+          <p class="eyebrow">Student stays · by region</p>
+          <h1 class="brand-hero">StayCompare</h1>
+          <p class="hero-lead">Search a region, open real accommodation profiles, save favourites on the map, and compare them against your uni, budget, and what’s nearby.</p>
 
-      <!-- ADD FORM -->
-      <section class="card">
-        <h2 id="formTitle">Add a stay</h2>
-        <p class="hint">Keep it simple: name, location, and cost. Add link/notes if you want.</p>
-
-        <form id="stayForm" class="no-print">
-          <label>Stay name</label>
-          <input id="name" required placeholder="e.g., City Centre Apartment" />
-
-          <label>Location</label>
-          <input id="location" placeholder="e.g., Exeter" />
-
-          <div class="row">
-            <div>
-              <label>Nightly rate (£)</label>
-              <input id="nightlyRate" type="number" min="0" step="0.01" required placeholder="50" />
+          <form id="searchForm" class="search-panel" autocomplete="off">
+            <div class="search-grid">
+              <label class="field">
+                <span>Region</span>
+                <select id="region" required></select>
+              </label>
+              <label class="field">
+                <span>Your university</span>
+                <select id="university" required></select>
+              </label>
+              <label class="field">
+                <span>Weekly budget (£)</span>
+                <input id="budget" type="number" min="50" step="5" placeholder="e.g. 160" />
+              </label>
+              <label class="field">
+                <span>Max walk to campus (mins)</span>
+                <input id="maxWalk" type="number" min="5" step="5" placeholder="Any" />
+              </label>
             </div>
-            <div>
-              <label>Duration</label>
-              <input id="nights" type="number" min="1" step="1" required placeholder="3" />
+            <div class="search-extras">
+              <label class="check">
+                <input type="checkbox" id="needStores" />
+                <span>Stores within ~8 min walk</span>
+              </label>
+              <label class="field compact">
+                <span>Type</span>
+                <select id="typeFilter">
+                  <option value="">All types</option>
+                  <option value="university-halls">University halls</option>
+                  <option value="private-halls">Private halls</option>
+                  <option value="shared-house">Shared house</option>
+                  <option value="studio">Studio</option>
+                </select>
+              </label>
+              <label class="field compact grow">
+                <span>Keyword</span>
+                <input id="keyword" type="search" placeholder="gym, ensuite, Fallowfield…" />
+              </label>
+              <button type="submit" class="btn primary">Search region</button>
             </div>
-            <div>
-              <label>Unit</label>
-              <select id="durationUnit">
-                <option value="night" selected>Nights</option>
-                <option value="week">Weeks</option>
-                <option value="month">Months</option>
-              </select>
-            </div>
-          </div>
-          <div id="durationHint" class="muted" style="margin-top:4px;">3 nights = 3 nights</div>
-          <div id="totalHint" class="muted" style="margin-top:4px;">Estimated total: £0.00</div>
-
-          <label>Fees (£)</label>
-          <input id="fees" type="number" min="0" step="0.01" value="0" />
-
-          <div class="row">
-            <div>
-              <label>Commute to campus (mins)</label>
-              <input id="commute" type="number" min="0" step="1" placeholder="e.g. 18" />
-            </div>
-            <div>
-              <label>Tags (comma separated)</label>
-              <input id="tags" placeholder="quiet, close to gym, social" />
-            </div>
-          </div>
-
-          <label>Link (optional)</label>
-          <input id="link" type="url" placeholder="https://..." />
-
-          <label>Notes (optional)</label>
-          <textarea id="notes" placeholder="Commute, amenities, pros/cons..."></textarea>
-
-          <div class="actions">
-            <button id="saveBtn" type="submit">Add stay</button>
-            <button type="button" id="cancelEdit" class="secondary" style="display:none;">Cancel edit</button>
-            <button type="button" id="clearAll" class="secondary">Clear all</button>
-          </div>
-        </form>
-
-        <div class="quiz no-print">
-          <h3>Best match quick setup</h3>
-          <div class="row">
-            <div>
-              <label style="margin-top:0;">Priority</label>
-              <select id="quizPriority">
-                <option value="cheap">Lowest cost</option>
-                <option value="balanced" selected>Balanced</option>
-                <option value="comfort">Comfort + commute</option>
-              </select>
-            </div>
-            <div>
-              <label style="margin-top:0;">Max commute (mins)</label>
-              <input id="quizCommute" type="number" min="0" step="1" placeholder="e.g. 30" />
-            </div>
-          </div>
-          <div class="actions" style="margin-top:10px;">
-            <button id="applyQuiz" type="button" class="secondary">Apply preferences</button>
-          </div>
+          </form>
         </div>
-      </section>
+      </div>
 
-      <!-- COMPARE LIST -->
-      <section class="card">
-        <div class="toolbar no-print">
-          <div class="toolbar-left">
-            <input id="search" class="search" placeholder="Search name, location, notes..." />
-            <label style="margin:0; color:var(--muted); font-size:12px;">Sort</label>
-            <select id="sortBy" style="width:auto; min-width: 170px;">
-              <option value="cheap">Cheapest total</option>
-              <option value="expensive">Most expensive total</option>
-              <option value="name">Name A–Z</option>
-              <option value="score">Best value score</option>
+      <div class="shell results-shell">
+        <div class="results-toolbar">
+          <div>
+            <h2 id="resultsTitle">Pick a region to begin</h2>
+            <p id="resultsSub" class="muted">We’ll score places for campus distance, uni popularity, nearby stores, and your budget.</p>
+          </div>
+          <label class="field compact sort-field">
+            <span>Sort</span>
+            <select id="sortBy">
+              <option value="best">Best match</option>
+              <option value="cheap">Cheapest rent</option>
+              <option value="closest">Closest to uni</option>
+              <option value="uni">Most popular with uni</option>
+              <option value="stores">Closest stores</option>
             </select>
-
-            <label style="margin:0; color:var(--muted); font-size:12px;">Student mode</label>
-            <select id="studentMode" style="width:auto; min-width: 170px;">
-              <option value="tight">Tight budget</option>
-              <option value="balanced" selected>Balanced</option>
-              <option value="comfort">Comfort first</option>
-            </select>
-
-            <label class="toggle">
-              <input type="checkbox" id="onlyFav" />
-              Show shortlisted only
-            </label>
-          </div>
-
-          <button id="printBtn" class="ghost" type="button">Print / Save as PDF</button>
+          </label>
         </div>
 
-        <div class="stats" id="stats"></div>
-        <div class="toolbar no-print" style="margin-bottom: 6px;">
-          <div class="toolbar-left" style="width:100%;">
-            <label style="margin:0; color:var(--muted); font-size:12px;">Your budget (£)</label>
-            <input id="budget" type="number" min="0" step="0.01" placeholder="e.g. 450" style="width: 150px; margin-top:0;" />
+        <div class="workspace">
+          <div class="list-pane">
+            <div id="resultsList" class="results-list"></div>
+            <div id="resultsEmpty" class="empty-state">Search a region to see student accommodations and their profiles.</div>
+          </div>
+          <div class="map-pane">
+            <div id="map" class="map" role="application" aria-label="Accommodation map"></div>
+            <p class="map-legend muted">Campus · listings · your saved places</p>
           </div>
         </div>
-        <div id="budgetStatus" class="budget-status"></div>
+      </div>
+    </section>
 
-        <div id="list" class="list"></div>
-        <div id="empty" class="empty onboarding" style="display:none;">No stays yet. Add 2-3 options and use Student mode + budget to get instant top picks.</div>
-
-        <div class="web-search no-print">
-          <h3>Search the web for new stays</h3>
-          <p class="hint" style="margin-top:6px;">Type a place or property to fetch live web results and quick platform links.</p>
-          <input id="webQuery" placeholder="e.g. student accommodation exeter city centre" />
-          <div id="webLinks" class="web-links"></div>
-          <div id="webResults" class="web-results"></div>
+    <!-- SAVED -->
+    <section id="view-saved" class="view">
+      <div class="shell section-head">
+        <h2>Saved places</h2>
+        <p class="muted">Your shortlist, pinned on the map so you can see how they sit relative to campus and each other.</p>
+      </div>
+      <div class="shell workspace">
+        <div class="list-pane">
+          <div id="savedList" class="results-list"></div>
+          <div id="savedEmpty" class="empty-state">Save places you like from search — they’ll show up here and on the map.</div>
         </div>
-      </section>
+        <div class="map-pane">
+          <div id="savedMap" class="map" role="application" aria-label="Saved accommodations map"></div>
+        </div>
+      </div>
+    </section>
 
-    </div>
+    <!-- COMPARE -->
+    <section id="view-compare" class="view">
+      <div class="shell section-head">
+        <h2>Compare against your uni</h2>
+        <p class="muted">Side-by-side rent, commute, store access, budget fit, and whether people from your university usually stay there.</p>
+      </div>
+      <div class="shell">
+        <div id="compareGrid" class="compare-grid"></div>
+        <div id="compareEmpty" class="empty-state">Add up to 4 places to compare from search or saved profiles.</div>
+      </div>
+    </section>
+  </main>
 
-    <footer class="no-print">
-      This website was built with HTML/CSS/JS <br>
-      This is a prototype made by Oghenemaro Emuophedaro and not a final product.
-    </footer>
-  </div>
-</main>
+  <!-- PROFILE DRAWER -->
+  <aside id="profileDrawer" class="drawer" aria-hidden="true">
+    <div class="drawer-backdrop" data-close-drawer></div>
+    <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="profileName">
+      <button type="button" class="icon-btn drawer-close" data-close-drawer aria-label="Close profile">×</button>
+      <div id="profileContent"></div>
+    </div>
+  </aside>
 
-<div id="estimateModal" class="modal-backdrop no-print" style="display:none;">
-  <div class="modal-card">
-    <h3 style="margin:0;">Import and estimate</h3>
-    <p class="hint" style="margin-top:6px;">Set quick numbers and save this result directly to your comparison list.</p>
-    <div class="row">
-      <div>
-        <label style="margin-top:0;">Nightly rate (£)</label>
-        <input id="estNightly" type="number" min="0" step="0.01" placeholder="e.g. 95" />
-      </div>
-      <div>
-        <label style="margin-top:0;">Duration</label>
-        <input id="estNights" type="number" min="1" step="1" value="3" />
-      </div>
-      <div>
-        <label style="margin-top:0;">Unit</label>
-        <select id="estDurationUnit">
-          <option value="night" selected>Nights</option>
-          <option value="week">Weeks</option>
-          <option value="month">Months</option>
-        </select>
-      </div>
-    </div>
-    <div id="estDurationHint" class="muted" style="margin-top:4px;">3 nights = 3 nights</div>
-    <div id="estTotalHint" class="muted" style="margin-top:4px;">Estimated total: £0.00</div>
-    <div class="row">
-      <div>
-        <label style="margin-top:0;">Fees (£)</label>
-        <input id="estFees" type="number" min="0" step="0.01" value="0" />
-      </div>
-      <div>
-        <label style="margin-top:0;">Commute (mins)</label>
-        <input id="estCommute" type="number" min="0" step="1" placeholder="optional" />
-      </div>
-    </div>
-    <div class="actions">
-      <button id="saveEstimate" type="button">Import + save</button>
-      <button id="closeEstimate" type="button" class="secondary">Cancel</button>
-    </div>
-  </div>
-</div>
+  <div id="toast" class="toast" aria-live="polite"></div>
 
-<div id="toast" class="toast" aria-live="polite"></div>
-<script src="./app.js"></script>
+  <footer class="site-footer">
+    <div class="shell">
+      <p>StayCompare prototype — student accommodation discovery by region. Built with HTML, CSS, vanilla JS &amp; Express.</p>
+    </div>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="./app.js"></script>
 </body>
 </html>

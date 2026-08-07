@@ -1,21 +1,64 @@
-const LS_KEY = "staycompare_stays_startup_v1";
-const LS_BUDGET_KEY = "staycompare_budget_v1";
-const LS_MODE_KEY = "staycompare_student_mode_v1";
+const LS_SAVED = "staycompare_saved_v2";
+const LS_COMPARE = "staycompare_compare_v2";
+const LS_PREFS = "staycompare_prefs_v2";
 
-function loadStays() {
+const state = {
+  meta: { regions: [], universities: [], types: {} },
+  results: [],
+  region: null,
+  university: null,
+  savedIds: loadJson(LS_SAVED, []),
+  compareIds: loadJson(LS_COMPARE, []),
+  prefs: loadJson(LS_PREFS, {}),
+  activeId: null,
+  map: null,
+  savedMap: null,
+  markers: [],
+  savedMarkers: []
+};
+
+const els = {
+  region: document.getElementById("region"),
+  university: document.getElementById("university"),
+  budget: document.getElementById("budget"),
+  maxWalk: document.getElementById("maxWalk"),
+  needStores: document.getElementById("needStores"),
+  typeFilter: document.getElementById("typeFilter"),
+  keyword: document.getElementById("keyword"),
+  sortBy: document.getElementById("sortBy"),
+  searchForm: document.getElementById("searchForm"),
+  resultsList: document.getElementById("resultsList"),
+  resultsEmpty: document.getElementById("resultsEmpty"),
+  resultsTitle: document.getElementById("resultsTitle"),
+  resultsSub: document.getElementById("resultsSub"),
+  savedList: document.getElementById("savedList"),
+  savedEmpty: document.getElementById("savedEmpty"),
+  savedCount: document.getElementById("savedCount"),
+  compareCount: document.getElementById("compareCount"),
+  compareGrid: document.getElementById("compareGrid"),
+  compareEmpty: document.getElementById("compareEmpty"),
+  profileDrawer: document.getElementById("profileDrawer"),
+  profileContent: document.getElementById("profileContent"),
+  toast: document.getElementById("toast"),
+  map: document.getElementById("map"),
+  savedMap: document.getElementById("savedMap")
+};
+
+function loadJson(key, fallback) {
   try {
-    return JSON.parse(localStorage.getItem(LS_KEY)) || [];
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function saveStays(stays) {
-  localStorage.setItem(LS_KEY, JSON.stringify(stays));
+function saveJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
 function money(n) {
-  return "£" + Number(n || 0).toFixed(2);
+  return "£" + Number(n || 0).toFixed(0);
 }
 
 function escapeHtml(str) {
@@ -27,694 +70,613 @@ function escapeHtml(str) {
     .replaceAll("'", "&#039;");
 }
 
-function totalCost(stay) {
-  return Number(stay.nightlyRate) * Number(stay.nights) + Number(stay.fees || 0);
-}
-
-function uid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
-}
-
-function parseTags(tagsText) {
-  return String(tagsText || "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .slice(0, 8);
-}
-
-function durationToNights(value, unit) {
-  const v = Number(value || 0);
-  if (unit === "week") return v * 7;
-  if (unit === "month") return v * 30;
-  return v;
-}
-
-function formatDuration(stay) {
-  const unit = stay.durationUnit || "night";
-  const value = Number(stay.durationValue || 0) || Number(stay.nights || 0);
-  const label = unit === "week" ? (value === 1 ? "week" : "weeks") : unit === "month" ? (value === 1 ? "month" : "months") : (value === 1 ? "night" : "nights");
-  return `${value} ${label}`;
-}
-
-function valueScore(stay, mode) {
-  const total = totalCost(stay);
-  if (!total) return 0;
-
-  const feePenalty = Number(stay.fees || 0) / Math.max(total, 1);
-  const durationBonus = Math.min(Number(stay.nights || 0), 14) / 14;
-  const commute = Number(stay.commute || 0);
-  const commuteBonus = commute ? (1 - Math.min(commute, 60) / 60) : 0.5;
-  const hasNotesBonus = stay.notes ? 0.08 : 0;
-  const hasLinkBonus = stay.link ? 0.05 : 0;
-
-  let totalWeight = 0.55;
-  let commuteWeight = 0.20;
-  let durationWeight = 0.15;
-
-  if (mode === "tight") {
-    totalWeight = 0.72;
-    commuteWeight = 0.12;
-    durationWeight = 0.10;
-  } else if (mode === "comfort") {
-    totalWeight = 0.38;
-    commuteWeight = 0.38;
-    durationWeight = 0.16;
-  }
-
-  const costFactor = 1 - Math.min(total / 1200, 1);
-  const score =
-    costFactor * totalWeight +
-    commuteBonus * commuteWeight +
-    durationBonus * durationWeight +
-    hasNotesBonus +
-    hasLinkBonus -
-    feePenalty * 0.35;
-
-  return Math.max(0, Math.min(100, Math.round(score * 100)));
-}
-
-let stays = loadStays();
-let editingId = null;
-let commuteCap = null;
-
-const form = document.getElementById("stayForm");
-const listEl = document.getElementById("list");
-const emptyEl = document.getElementById("empty");
-const sortByEl = document.getElementById("sortBy");
-const printBtn = document.getElementById("printBtn");
-const clearAllBtn = document.getElementById("clearAll");
-const onlyFavEl = document.getElementById("onlyFav");
-const searchEl = document.getElementById("search");
-const statsEl = document.getElementById("stats");
-const budgetEl = document.getElementById("budget");
-const budgetStatusEl = document.getElementById("budgetStatus");
-const studentModeEl = document.getElementById("studentMode");
-const toastEl = document.getElementById("toast");
-const formTitleEl = document.getElementById("formTitle");
-const saveBtnEl = document.getElementById("saveBtn");
-const cancelEditBtnEl = document.getElementById("cancelEdit");
-const quizPriorityEl = document.getElementById("quizPriority");
-const quizCommuteEl = document.getElementById("quizCommute");
-const applyQuizBtnEl = document.getElementById("applyQuiz");
-const webQueryEl = document.getElementById("webQuery");
-const webLinksEl = document.getElementById("webLinks");
-const webResultsEl = document.getElementById("webResults");
-const estimateModalEl = document.getElementById("estimateModal");
-const estNightlyEl = document.getElementById("estNightly");
-const estNightsEl = document.getElementById("estNights");
-const durationUnitEl = document.getElementById("durationUnit");
-const estDurationUnitEl = document.getElementById("estDurationUnit");
-const durationHintEl = document.getElementById("durationHint");
-const estDurationHintEl = document.getElementById("estDurationHint");
-const totalHintEl = document.getElementById("totalHint");
-const estTotalHintEl = document.getElementById("estTotalHint");
-const estFeesEl = document.getElementById("estFees");
-const estCommuteEl = document.getElementById("estCommute");
-const saveEstimateEl = document.getElementById("saveEstimate");
-const closeEstimateEl = document.getElementById("closeEstimate");
-
-let pendingImport = null;
-
-budgetEl.value = localStorage.getItem(LS_BUDGET_KEY) || "";
-studentModeEl.value = localStorage.getItem(LS_MODE_KEY) || "balanced";
-
 function showToast(message) {
-  toastEl.textContent = message;
-  toastEl.classList.add("show");
+  els.toast.textContent = message;
+  els.toast.classList.add("show");
   clearTimeout(showToast.tid);
-  showToast.tid = setTimeout(() => toastEl.classList.remove("show"), 1400);
+  showToast.tid = setTimeout(() => els.toast.classList.remove("show"), 1600);
 }
 
-function getTopRecommendations(items, mode) {
-  return items
-    .map((stay) => ({ id: stay.id, score: valueScore(stay, mode) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((x) => x.id);
+function isSaved(id) {
+  return state.savedIds.includes(id);
 }
 
-function renderStats(items, mode) {
-  if (!items.length) {
-    statsEl.innerHTML = "";
-    budgetStatusEl.textContent = "";
+function inCompare(id) {
+  return state.compareIds.includes(id);
+}
+
+function toggleSaved(id) {
+  if (isSaved(id)) {
+    state.savedIds = state.savedIds.filter((x) => x !== id);
+    showToast("Removed from saved");
+  } else {
+    state.savedIds = [id, ...state.savedIds];
+    showToast("Saved — view it on the map");
+  }
+  saveJson(LS_SAVED, state.savedIds);
+  updateCounts();
+  renderResults();
+  renderSaved();
+  updateMaps();
+}
+
+function toggleCompare(id) {
+  if (inCompare(id)) {
+    state.compareIds = state.compareIds.filter((x) => x !== id);
+    showToast("Removed from compare");
+  } else if (state.compareIds.length >= 4) {
+    showToast("Compare is limited to 4 places");
+    return;
+  } else {
+    state.compareIds = [...state.compareIds, id];
+    showToast("Added to compare");
+  }
+  saveJson(LS_COMPARE, state.compareIds);
+  updateCounts();
+  renderResults();
+  renderSaved();
+  renderCompare();
+}
+
+function updateCounts() {
+  els.savedCount.textContent = String(state.savedIds.length);
+  els.compareCount.textContent = String(state.compareIds.length);
+}
+
+function budgetChip(budget) {
+  if (!budget || budget.status === "unknown") return "";
+  if (budget.status === "under") {
+    return `<span class="chip good">${money(budget.delta)}/wk under budget</span>`;
+  }
+  if (budget.status === "tight") {
+    return `<span class="chip warn">Fits budget tightly</span>`;
+  }
+  return `<span class="chip bad">${money(Math.abs(budget.delta))}/wk over budget</span>`;
+}
+
+function uniShareLabel(share) {
+  if (share >= 75) return `${share}% from your uni — common stay area`;
+  if (share >= 50) return `${share}% from your uni — fairly common`;
+  return `${share}% from your uni — less common`;
+}
+
+function placeCardHtml(place, { index = 0 } = {}) {
+  const saved = isSaved(place.id);
+  const comparing = inCompare(place.id);
+  const walk = place.commute?.walkMins;
+  const uniShare = place.commute?.uniShare;
+  const store = place.nearestStore;
+
+  return `
+    <article class="place-card ${saved ? "is-saved" : ""} ${state.activeId === place.id ? "is-active" : ""}"
+      data-id="${place.id}" style="animation-delay:${Math.min(index * 0.04, 0.28)}s">
+      <div class="thumb ${escapeHtml(place.imageTone || "campus")}" aria-hidden="true"></div>
+      <div class="place-body">
+        <h3>${escapeHtml(place.name)}</h3>
+        <div class="muted">${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}, ${escapeHtml(place.city)}</div>
+        <div class="meta-row">
+          <span class="chip">Match ${place.matchScore ?? "—"}</span>
+          ${budgetChip(place.budget)}
+          ${saved ? '<span class="chip accent">Saved</span>' : ""}
+          ${uniShare >= 75 ? '<span class="chip good">Popular with your uni</span>' : ""}
+        </div>
+        <div class="place-stats">
+          <div class="stat">
+            <span class="label">Rent</span>
+            <span class="value">${money(place.rentWeekly)}/wk</span>
+          </div>
+          <div class="stat">
+            <span class="label">To campus</span>
+            <span class="value">${walk != null ? walk + " min walk" : "—"}</span>
+          </div>
+          <div class="stat">
+            <span class="label">Stores</span>
+            <span class="value">${store ? store.walkMins + " min" : "—"}</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button type="button" class="btn secondary" data-action="profile" data-id="${place.id}">Open profile</button>
+          <button type="button" class="btn ${saved ? "accent" : "ghost"}" data-action="save" data-id="${place.id}">
+            ${saved ? "Saved" : "Save"}
+          </button>
+          <button type="button" class="btn ${comparing ? "secondary" : "ghost"}" data-action="compare" data-id="${place.id}">
+            ${comparing ? "In compare" : "Compare"}
+          </button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderResults() {
+  const items = state.results;
+  els.resultsEmpty.style.display = items.length ? "none" : "block";
+  els.resultsList.innerHTML = items.map((p, i) => placeCardHtml(p, { index: i })).join("");
+
+  if (state.region && state.university) {
+    els.resultsTitle.textContent = `${items.length} place${items.length === 1 ? "" : "s"} in ${state.region.name}`;
+    els.resultsSub.textContent = `Compared for ${state.university.name} · budget, campus distance, nearby stores, and uni popularity.`;
+  }
+}
+
+async function fetchSavedPlaces() {
+  if (!state.savedIds.length) return [];
+  const university = els.university.value || state.prefs.university || "";
+  const budget = els.budget.value || state.prefs.budget || "";
+  const places = await Promise.all(
+    state.savedIds.map(async (id) => {
+      const params = new URLSearchParams();
+      if (university) params.set("university", university);
+      if (budget) params.set("budget", budget);
+      const res = await fetch(`/api/accommodation/${id}?${params}`);
+      if (!res.ok) return null;
+      return res.json();
+    })
+  );
+  return places.filter(Boolean);
+}
+
+async function renderSaved() {
+  const places = await fetchSavedPlaces();
+  els.savedEmpty.style.display = places.length ? "none" : "block";
+  els.savedList.innerHTML = places.map((p, i) => placeCardHtml(p, { index: i })).join("");
+  return places;
+}
+
+async function renderCompare() {
+  if (!state.compareIds.length) {
+    els.compareEmpty.style.display = "block";
+    els.compareGrid.innerHTML = "";
     return;
   }
 
-  const totals = items.map(totalCost);
-  const min = Math.min(...totals);
-  const max = Math.max(...totals);
-  const avg = totals.reduce((a, b) => a + b, 0) / totals.length;
+  const university = els.university.value || state.prefs.university || "";
+  const budget = els.budget.value || state.prefs.budget || "";
+  const params = new URLSearchParams({
+    ids: state.compareIds.join(","),
+    university,
+    budget
+  });
+  const res = await fetch(`/api/compare?${params}`);
+  const data = await res.json();
+  const items = data.items || [];
 
-  const avgScore = Math.round(items.reduce((sum, s) => sum + valueScore(s, mode), 0) / items.length);
+  els.compareEmpty.style.display = items.length ? "none" : "block";
+  if (!items.length) {
+    els.compareGrid.innerHTML = "";
+    return;
+  }
 
-  statsEl.innerHTML = `
-    <div class="stat"><p class="label">Options</p><p class="value">${items.length}</p></div>
-    <div class="stat"><p class="label">Cheapest</p><p class="value">${money(min)}</p></div>
-    <div class="stat"><p class="label">Average</p><p class="value">${money(avg)}</p></div>
-    <div class="stat"><p class="label">Top range</p><p class="value">${money(max - min)}</p></div>
-    <div class="stat"><p class="label">Avg value score</p><p class="value">${avgScore}</p></div>
-    <div class="stat"><p class="label">Mode</p><p class="value">${escapeHtml(studentModeEl.options[studentModeEl.selectedIndex].text)}</p></div>
+  const bestRent = Math.min(...items.map((i) => i.rentWeekly));
+  const bestWalk = Math.min(...items.map((i) => i.commute?.walkMins ?? 999));
+  const bestStore = Math.min(...items.map((i) => i.storeWalkMins ?? 999));
+  const bestUni = Math.max(...items.map((i) => i.commute?.uniShare ?? 0));
+  const bestScore = Math.max(...items.map((i) => i.matchScore ?? 0));
+
+  els.compareGrid.innerHTML = items
+    .map((place) => {
+      const walk = place.commute?.walkMins;
+      const uniShare = place.commute?.uniShare;
+      return `
+        <article class="compare-card">
+          <h3>${escapeHtml(place.name)}</h3>
+          <div class="muted">${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}</div>
+          <div class="meta-row" style="margin-top:10px;">
+            ${budgetChip(place.budget)}
+            ${place.billsIncluded ? '<span class="chip good">Bills included</span>' : '<span class="chip">Bills extra</span>'}
+          </div>
+          <div class="compare-metric"><span class="k">Match score</span><span class="v ${place.matchScore === bestScore ? "win" : ""}">${place.matchScore}</span></div>
+          <div class="compare-metric"><span class="k">Weekly rent</span><span class="v ${place.rentWeekly === bestRent ? "win" : ""}">${money(place.rentWeekly)}</span></div>
+          <div class="compare-metric"><span class="k">Walk to campus</span><span class="v ${walk === bestWalk ? "win" : ""}">${walk != null ? walk + " min" : "—"}</span></div>
+          <div class="compare-metric"><span class="k">Cycle to campus</span><span class="v">${place.commute?.cycleMins != null ? place.commute.cycleMins + " min" : "—"}</span></div>
+          <div class="compare-metric"><span class="k">Distance</span><span class="v">${place.commute?.distanceKm != null ? place.commute.distanceKm + " km" : "—"}</span></div>
+          <div class="compare-metric"><span class="k">Nearest store</span><span class="v ${place.storeWalkMins === bestStore ? "win" : ""}">${place.nearestStore ? place.nearestStore.walkMins + " min · " + escapeHtml(place.nearestStore.name) : "—"}</span></div>
+          <div class="compare-metric"><span class="k">Students from your uni</span><span class="v ${uniShare === bestUni ? "win" : ""}">${uniShare != null ? uniShare + "%" : "—"}</span></div>
+          <div class="card-actions">
+            <button type="button" class="btn secondary" data-action="profile" data-id="${place.id}">Profile</button>
+            <button type="button" class="btn danger-soft" data-action="compare" data-id="${place.id}">Remove</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function makeIcon(label, className = "") {
+  return L.divIcon({
+    className: "",
+    html: `<div class="marker-pin ${className}">${label}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14]
+  });
+}
+
+function ensureMaps() {
+  if (!state.map) {
+    state.map = L.map(els.map, { zoomControl: true, scrollWheelZoom: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(state.map);
+    state.map.setView([54.0, -2.5], 6);
+  }
+  if (!state.savedMap) {
+    state.savedMap = L.map(els.savedMap, { zoomControl: true, scrollWheelZoom: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(state.savedMap);
+    state.savedMap.setView([54.0, -2.5], 6);
+  }
+}
+
+function clearMarkers(mapKey) {
+  const list = mapKey === "saved" ? state.savedMarkers : state.markers;
+  const map = mapKey === "saved" ? state.savedMap : state.map;
+  list.forEach((m) => map.removeLayer(m));
+  if (mapKey === "saved") state.savedMarkers = [];
+  else state.markers = [];
+}
+
+function plotPlaces(map, places, markerStore, { includeUni = true, includeSavedExtra = true } = {}) {
+  const bounds = [];
+
+  if (includeUni && state.university) {
+    const uniMarker = L.marker([state.university.lat, state.university.lng], {
+      icon: makeIcon("UNI", "uni")
+    })
+      .addTo(map)
+      .bindPopup(`<strong>${escapeHtml(state.university.name)}</strong><br>Campus`);
+    markerStore.push(uniMarker);
+    bounds.push([state.university.lat, state.university.lng]);
+  }
+
+  places.forEach((place, index) => {
+    const saved = isSaved(place.id);
+    const marker = L.marker([place.lat, place.lng], {
+      icon: makeIcon(String(index + 1), saved ? "saved" : "")
+    })
+      .addTo(map)
+      .bindPopup(
+        `<strong>${escapeHtml(place.name)}</strong><br>${money(place.rentWeekly)}/wk` +
+          (place.commute ? `<br>${place.commute.walkMins} min walk to campus` : "") +
+          `<br><button type="button" data-action="profile" data-id="${place.id}">Open profile</button>`
+      );
+    marker.on("click", () => {
+      state.activeId = place.id;
+      renderResults();
+    });
+    markerStore.push(marker);
+    bounds.push([place.lat, place.lng]);
+  });
+
+  if (includeSavedExtra) {
+    // saved places not in current results still show on search map
+  }
+
+  if (bounds.length) {
+    map.fitBounds(bounds, { padding: [36, 36], maxZoom: 14 });
+  }
+}
+
+async function updateMaps() {
+  ensureMaps();
+  clearMarkers("search");
+  clearMarkers("saved");
+
+  const savedPlaces = await fetchSavedPlaces();
+
+  // Search map: results + highlight saved
+  const searchPlaces = state.results.length ? state.results : savedPlaces;
+  plotPlaces(state.map, searchPlaces, state.markers, { includeUni: true });
+
+  // Also pin saved that aren't in results
+  if (state.results.length) {
+    const resultIds = new Set(state.results.map((r) => r.id));
+    savedPlaces
+      .filter((p) => !resultIds.has(p.id) && (!state.region || p.region === state.region.id))
+      .forEach((place) => {
+        const marker = L.marker([place.lat, place.lng], { icon: makeIcon("♥", "saved") })
+          .addTo(state.map)
+          .bindPopup(`<strong>${escapeHtml(place.name)}</strong><br>Saved place`);
+        state.markers.push(marker);
+      });
+  }
+
+  plotPlaces(state.savedMap, savedPlaces, state.savedMarkers, { includeUni: true });
+
+  setTimeout(() => {
+    state.map.invalidateSize();
+    state.savedMap.invalidateSize();
+  }, 80);
+}
+
+function openProfile(place) {
+  state.activeId = place.id;
+  const walk = place.commute?.walkMins;
+  const uniShare = place.commute?.uniShare;
+  const storeGroups = [
+    { title: "Stores & shops", items: place.nearby?.stores || [] },
+    { title: "Cafés", items: place.nearby?.cafes || [] },
+    { title: "Transport", items: place.nearby?.transport || [] }
+  ];
+
+  els.profileContent.innerHTML = `
+    <div class="profile-hero thumb ${escapeHtml(place.imageTone || "campus")}">
+      <div>
+        <h2 id="profileName">${escapeHtml(place.name)}</h2>
+        <p>${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}, ${escapeHtml(place.city)}</p>
+      </div>
+    </div>
+
+    <div class="meta-row">
+      <span class="chip">Match ${place.matchScore ?? "—"}</span>
+      ${budgetChip(place.budget)}
+      ${place.billsIncluded ? '<span class="chip good">Bills included</span>' : '<span class="chip warn">Bills not included</span>'}
+      ${isSaved(place.id) ? '<span class="chip accent">Saved</span>' : ""}
+    </div>
+
+    <div class="place-stats" style="margin-top:14px;">
+      <div class="stat"><span class="label">Weekly</span><span class="value">${money(place.rentWeekly)}</span></div>
+      <div class="stat"><span class="label">Monthly est.</span><span class="value">${money(place.rentMonthly)}</span></div>
+      <div class="stat"><span class="label">Deposit</span><span class="value">${money(place.deposit)}</span></div>
+    </div>
+
+    <p style="margin-top:14px;color:var(--ink-soft);">${escapeHtml(place.description)}</p>
+
+    <div class="profile-section">
+      <h3>Vs your university</h3>
+      ${
+        place.commute
+          ? `<p class="muted" style="margin:0 0 8px;">${escapeHtml(place.university?.name || "Campus")}</p>
+             <div class="place-stats">
+               <div class="stat"><span class="label">Walk</span><span class="value">${walk} min</span></div>
+               <div class="stat"><span class="label">Cycle</span><span class="value">${place.commute.cycleMins} min</span></div>
+               <div class="stat"><span class="label">Distance</span><span class="value">${place.commute.distanceKm} km</span></div>
+             </div>
+             <p style="margin-top:10px;"><strong>${uniShareLabel(uniShare)}</strong></p>`
+          : '<p class="muted">Select your university in search to see commute and popularity.</p>'
+      }
+    </div>
+
+    <div class="profile-section">
+      <h3>Why it might suit you</h3>
+      <ul class="hint-list">
+        ${(place.fitHints || []).map((h) => `<li>${escapeHtml(h)}</li>`).join("") || "<li>Open search with your uni and budget for tailored hints.</li>"}
+      </ul>
+    </div>
+
+    <div class="profile-section">
+      <h3>Nearby benefits</h3>
+      ${storeGroups
+        .map(
+          (group) => `
+        <p style="margin:10px 0 6px;font-weight:700;">${escapeHtml(group.title)}</p>
+        <div class="nearby-list">
+          ${
+            group.items.length
+              ? group.items
+                  .map(
+                    (item) => `
+              <div class="nearby-item">
+                <span>${escapeHtml(item.name)}${item.type ? ` · ${escapeHtml(item.type)}` : ""}</span>
+                <strong>${item.walkMins} min</strong>
+              </div>`
+                  )
+                  .join("")
+              : '<div class="nearby-item"><span>None listed</span></div>'
+          }
+        </div>`
+        )
+        .join("")}
+    </div>
+
+    <div class="profile-section">
+      <h3>Amenities</h3>
+      <div class="meta-row">
+        ${(place.amenities || []).map((a) => `<span class="chip">${escapeHtml(a)}</span>`).join("")}
+      </div>
+    </div>
+
+    <div class="card-actions" style="margin-top:18px;">
+      <button type="button" class="btn ${isSaved(place.id) ? "accent" : "primary"}" data-action="save" data-id="${place.id}">
+        ${isSaved(place.id) ? "Saved on map" : "Save place"}
+      </button>
+      <button type="button" class="btn secondary" data-action="compare" data-id="${place.id}">
+        ${inCompare(place.id) ? "In compare" : "Add to compare"}
+      </button>
+    </div>
   `;
 
-  const budget = Number(budgetEl.value);
-  if (!budget) {
-    budgetStatusEl.textContent = "Tip: set a budget to instantly check if your best options fit.";
+  els.profileDrawer.classList.add("is-open");
+  els.profileDrawer.setAttribute("aria-hidden", "false");
+  renderResults();
+}
+
+async function loadProfile(id) {
+  const university = els.university.value || state.prefs.university || "";
+  const budget = els.budget.value || state.prefs.budget || "";
+  const params = new URLSearchParams();
+  if (university) params.set("university", university);
+  if (budget) params.set("budget", budget);
+  const res = await fetch(`/api/accommodation/${id}?${params}`);
+  if (!res.ok) {
+    showToast("Could not open profile");
     return;
   }
-  if (min <= budget) {
-    budgetStatusEl.textContent = `Good news: your cheapest stay is ${money(budget - min)} under budget.`;
-  } else {
-    budgetStatusEl.textContent = `Heads up: your cheapest stay is ${money(min - budget)} over budget.`;
-  }
+  const place = await res.json();
+  openProfile(place);
 }
 
-function resetFormMode() {
-  editingId = null;
-  formTitleEl.textContent = "Add a stay";
-  saveBtnEl.textContent = "Add stay";
-  cancelEditBtnEl.style.display = "none";
+function closeDrawer() {
+  els.profileDrawer.classList.remove("is-open");
+  els.profileDrawer.setAttribute("aria-hidden", "true");
 }
 
-function startEdit(stay) {
-  editingId = stay.id;
-  formTitleEl.textContent = "Edit stay";
-  saveBtnEl.textContent = "Save changes";
-  cancelEditBtnEl.style.display = "inline-block";
-
-  document.getElementById("name").value = stay.name || "";
-  document.getElementById("location").value = stay.location || "";
-  document.getElementById("nightlyRate").value = stay.nightlyRate || "";
-  document.getElementById("nights").value = stay.durationValue || stay.nights || "";
-  durationUnitEl.value = stay.durationUnit || "night";
-  renderDurationHint(document.getElementById("nights").value, durationUnitEl.value, durationHintEl);
-  document.getElementById("fees").value = stay.fees || 0;
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    document.getElementById("nights").value,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-  document.getElementById("commute").value = stay.commute || "";
-  document.getElementById("tags").value = (stay.tags || []).join(", ");
-  document.getElementById("link").value = stay.link || "";
-  document.getElementById("notes").value = stay.notes || "";
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function render() {
-  listEl.innerHTML = "";
-
-  const sortBy = sortByEl.value;
-  const mode = studentModeEl.value;
-  let items = stays.slice();
-
-  if (onlyFavEl.checked) items = items.filter((s) => s.favourite);
-
-  const q = searchEl.value.trim().toLowerCase();
-  if (q) {
-    items = items.filter((s) =>
-      `${s.name || ""} ${s.location || ""} ${(s.tags || []).join(" ")} ${s.notes || ""}`
-        .toLowerCase()
-        .includes(q)
-    );
-  }
-  if (Number.isFinite(commuteCap)) {
-    items = items.filter((s) => !s.commute || Number(s.commute) <= commuteCap);
-  }
-
-  if (sortBy === "cheap") items.sort((a, b) => totalCost(a) - totalCost(b));
-  if (sortBy === "expensive") items.sort((a, b) => totalCost(b) - totalCost(a));
-  if (sortBy === "name") items.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-  if (sortBy === "score") items.sort((a, b) => valueScore(b, mode) - valueScore(a, mode));
-
-  emptyEl.style.display = items.length === 0 ? "block" : "none";
-  renderStats(items, mode);
-
-  const recommended = new Set(getTopRecommendations(items, mode));
-
-  items.forEach((stay) => {
-    const div = document.createElement("div");
-    const score = valueScore(stay, mode);
-    const isRecommended = recommended.has(stay.id);
-    div.className = `stay ${isRecommended ? "recommended" : ""}`;
-
-    const imageQuery = encodeURIComponent(`${stay.name} ${stay.location}`);
-    const tagsHtml = (stay.tags || []).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
-
-    div.innerHTML = `
-      <div>
-        <h3>
-          ${escapeHtml(stay.name)}
-          ${stay.favourite ? '<span class="pill">Shortlisted</span>' : ""}
-          ${isRecommended ? '<span class="pill reco">Top pick</span>' : ""}
-        </h3>
-
-        <div class="muted">
-          ${stay.location ? `${escapeHtml(stay.location)} • ` : ""}
-          ${money(stay.nightlyRate)} / night • ${formatDuration(stay)} (${stay.nights} nights) • Fees ${money(stay.fees || 0)}
-          ${stay.commute ? ` • ${stay.commute} mins to campus` : ""}
-        </div>
-
-        <div class="price">
-          ${money(totalCost(stay))}
-          <span class="muted" style="font-weight:normal;"> total</span>
-        </div>
-
-        ${tagsHtml ? `<div class="tags">${tagsHtml}</div>` : ""}
-
-        <div class="links">
-          ${stay.link ? `<a href="${stay.link}" target="_blank" rel="noopener">Open link</a>` : ""}
-          <a href="https://www.google.com/search?tbm=isch&q=${imageQuery}" target="_blank" rel="noopener">Search images</a>
-        </div>
-
-        <div class="score">
-          Value score
-          <div class="score-meter"><span style="width:${score}%;"></span></div>
-          <strong>${score}</strong>
-        </div>
-
-        ${stay.notes ? `<div class="muted">${escapeHtml(stay.notes)}</div>` : ""}
-      </div>
-
-      <div class="right no-print">
-        <button class="secondary" data-action="fav" data-id="${stay.id}">${stay.favourite ? "Unshortlist" : "Shortlist"}</button>
-        <button class="secondary" data-action="edit" data-id="${stay.id}">Edit</button>
-        <button class="danger" data-action="del" data-id="${stay.id}">Delete</button>
-      </div>
-    `;
-    listEl.appendChild(div);
+function setView(name) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("is-active"));
+  document.querySelectorAll(".nav-btn").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.view === name);
   });
+  const view = document.getElementById(`view-${name}`);
+  if (view) view.classList.add("is-active");
+
+  if (name === "saved") {
+    renderSaved().then(() => updateMaps());
+  }
+  if (name === "compare") renderCompare();
+  if (name === "search") {
+    setTimeout(() => state.map && state.map.invalidateSize(), 100);
+  }
 }
 
-function buildWebLinks(query) {
-  if (!query) {
-    webLinksEl.innerHTML = "";
-    webResultsEl.innerHTML = "";
-    return;
-  }
-  const q = encodeURIComponent(query);
-  const links = [
-    { label: "Google Maps", url: `https://www.google.com/maps/search/${q}` },
-    { label: "Booking.com", url: `https://www.booking.com/searchresults.html?ss=${q}` },
-    { label: "Airbnb", url: `https://www.airbnb.com/s/${q}/homes` },
-    { label: "SpareRoom", url: `https://www.spareroom.co.uk/flatshare/?search=${q}` },
-    { label: "Rightmove", url: `https://www.rightmove.co.uk/property-to-rent/find.html?searchLocation=${q}` }
-  ];
-  webLinksEl.innerHTML = links
-    .map((item) => `<a href="${item.url}" target="_blank" rel="noopener">${item.label}</a>`)
+function syncUniversityOptions() {
+  const regionId = els.region.value;
+  const unis = state.meta.universities.filter((u) => !regionId || u.region === regionId);
+  const current = els.university.value || state.prefs.university || "";
+  els.university.innerHTML = unis
+    .map((u) => `<option value="${u.id}">${escapeHtml(u.name)}</option>`)
     .join("");
+  if (unis.some((u) => u.id === current)) els.university.value = current;
 }
 
-function inferLocationFromSnippet(snippet) {
-  return String(snippet || "").split(",").slice(-3).join(",").trim().slice(0, 90);
-}
-
-function renderDurationHint(value, unit, targetEl) {
-  const raw = Number(value || 0);
-  const safe = raw > 0 ? raw : 0;
-  const nights = durationToNights(safe, unit);
-  const unitLabel =
-    unit === "week"
-      ? safe === 1 ? "week" : "weeks"
-      : unit === "month"
-        ? safe === 1 ? "month" : "months"
-        : safe === 1 ? "night" : "nights";
-  targetEl.textContent = `${safe || 0} ${unitLabel} = ${nights} nights`;
-}
-
-function renderTotalHint(rateValue, durationValue, unit, feesValue, targetEl) {
-  const rate = Number(rateValue || 0);
-  const duration = Number(durationValue || 0);
-  const fees = Number(feesValue || 0);
-  const nights = durationToNights(duration, unit);
-  const total = rate * nights + fees;
-  const budget = Number(budgetEl.value || 0);
-  targetEl.classList.remove("hint-good", "hint-bad");
-
-  if (budget > 0) {
-    if (total <= budget) targetEl.classList.add("hint-good");
-    else targetEl.classList.add("hint-bad");
-  }
-
-  const budgetText =
-    budget > 0
-      ? total <= budget
-        ? ` (${money(budget - total)} under budget)`
-        : ` (${money(total - budget)} over budget)`
-      : "";
-  targetEl.textContent = `Estimated total: ${money(total)}${budgetText}`;
-}
-
-function fillFormFromImport(data) {
-  const nameEl = document.getElementById("name");
-  const locationEl = document.getElementById("location");
-  const notesEl = document.getElementById("notes");
-  const linkEl = document.getElementById("link");
-  const tagsEl = document.getElementById("tags");
-
-  nameEl.value = data.title || "";
-  if (!locationEl.value && data.snippet) locationEl.value = inferLocationFromSnippet(data.snippet);
-  if (!notesEl.value && data.snippet) notesEl.value = `Imported from live search:\n${data.snippet}`;
-  if (!linkEl.value) linkEl.value = data.link || "";
-  if (!tagsEl.value) tagsEl.value = "imported, web result";
-}
-
-function saveImportedStayWithEstimate(data, estimate) {
-  stays.push({
-    id: uid(),
-    name: data.title || "Imported stay",
-    location: inferLocationFromSnippet(data.snippet),
-    nightlyRate: Number(estimate.nightlyRate),
-    durationValue: Number(estimate.durationValue || estimate.nights || 1),
-    durationUnit: estimate.durationUnit || "night",
-    nights: Number(estimate.nights),
-    fees: Number(estimate.fees || 0),
-    commute: Number(estimate.commute || 0),
-    tags: parseTags("imported, web result"),
-    link: data.link || "",
-    notes: data.snippet ? `Imported from live search:\n${data.snippet}` : "",
-    favourite: false
-  });
-  saveStays(stays);
-}
-
-function renderWebResults(results) {
-  if (!results.length) {
-    webResultsEl.innerHTML = '<div class="web-muted">No live results found for this query yet.</div>';
-    return;
-  }
-  webResultsEl.innerHTML = results
-    .map(
-      (item) => `
-      <div class="web-result">
-        <a href="${item.link}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
-        ${item.snippet ? `<p>${escapeHtml(item.snippet)}</p>` : ""}
-        <div class="result-actions">
-          <button
-            type="button"
-            class="secondary"
-            data-action="import-web"
-            data-title="${escapeHtml(item.title)}"
-            data-snippet="${escapeHtml(item.snippet || "")}"
-            data-link="${escapeHtml(item.link)}"
-          >
-            Import to form
-          </button>
-          <button
-            type="button"
-            data-action="import-web-estimate"
-            data-title="${escapeHtml(item.title)}"
-            data-snippet="${escapeHtml(item.snippet || "")}"
-            data-link="${escapeHtml(item.link)}"
-          >
-            Import + estimate price
-          </button>
-        </div>
-      </div>
-    `
-    )
-    .join("");
-}
-
-async function fetchWebResults(query) {
-  if (!query) return;
-  webResultsEl.innerHTML = '<div class="web-muted">Fetching live results...</div>';
-  try {
-    const res = await fetch(`/api/search-stays?q=${encodeURIComponent(query)}`);
-    if (!res.ok) throw new Error("Search request failed");
-    const data = await res.json();
-    renderWebResults(Array.isArray(data.results) ? data.results : []);
-  } catch {
-    webResultsEl.innerHTML =
-      '<div class="web-muted">Live fetch unavailable right now. You can still use the quick links above.</div>';
-  }
-}
-
-listEl.addEventListener("click", (e) => {
-  const btn = e.target.closest("button");
-  if (!btn) return;
-  const action = btn.getAttribute("data-action");
-  const id = btn.getAttribute("data-id");
-  const idx = stays.findIndex((s) => s.id === id);
-  if (idx === -1) return;
-
-  if (action === "del") {
-    stays.splice(idx, 1);
-    showToast("Stay removed");
-  } else if (action === "fav") {
-    stays[idx].favourite = !stays[idx].favourite;
-    showToast(stays[idx].favourite ? "Added to shortlist" : "Removed from shortlist");
-  } else if (action === "edit") {
-    startEdit(stays[idx]);
-    return;
-  }
-  saveStays(stays);
-  render();
-});
-
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const name = document.getElementById("name").value.trim();
-  const location = document.getElementById("location").value.trim();
-  const nightlyRate = Number(document.getElementById("nightlyRate").value);
-  const durationValue = Number(document.getElementById("nights").value);
-  const durationUnit = durationUnitEl.value || "night";
-  const nights = durationToNights(durationValue, durationUnit);
-  const fees = Number(document.getElementById("fees").value || 0);
-  const commute = Number(document.getElementById("commute").value || 0);
-  const tags = parseTags(document.getElementById("tags").value);
-  const link = document.getElementById("link").value.trim();
-  const notes = document.getElementById("notes").value.trim();
-
-  if (!name) return alert("Please enter a stay name.");
-  if (!nightlyRate || !durationValue) return alert("Please enter nightly rate and a duration.");
-
-  const payload = { name, location, nightlyRate, durationValue, durationUnit, nights, fees, commute, tags, link, notes, favourite: false };
-
-  if (editingId) {
-    const idx = stays.findIndex((s) => s.id === editingId);
-    if (idx !== -1) {
-      payload.id = stays[idx].id;
-      payload.favourite = stays[idx].favourite;
-      stays[idx] = payload;
-      showToast("Stay updated");
-    }
-  } else {
-    stays.push({ id: uid(), ...payload });
-    showToast("Stay added");
-  }
-
-  saveStays(stays);
-  form.reset();
-  document.getElementById("fees").value = 0;
-  durationUnitEl.value = "night";
-  renderDurationHint(document.getElementById("nights").value || 3, durationUnitEl.value, durationHintEl);
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    document.getElementById("nights").value || 3,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-  resetFormMode();
-  render();
-});
-
-cancelEditBtnEl.addEventListener("click", () => {
-  form.reset();
-  document.getElementById("fees").value = 0;
-  durationUnitEl.value = "night";
-  renderDurationHint(document.getElementById("nights").value || 3, durationUnitEl.value, durationHintEl);
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    document.getElementById("nights").value || 3,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-  resetFormMode();
-  showToast("Edit canceled");
-});
-
-clearAllBtn.addEventListener("click", () => {
-  if (!confirm("Clear all saved stays?")) return;
-  stays = [];
-  saveStays(stays);
-  resetFormMode();
-  showToast("All stays cleared");
-  render();
-});
-
-sortByEl.addEventListener("change", render);
-onlyFavEl.addEventListener("change", render);
-searchEl.addEventListener("input", render);
-printBtn.addEventListener("click", () => window.print());
-budgetEl.addEventListener("input", () => {
-  localStorage.setItem(LS_BUDGET_KEY, budgetEl.value.trim());
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    document.getElementById("nights").value,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-  renderTotalHint(estNightlyEl.value, estNightsEl.value, estDurationUnitEl.value, estFeesEl.value, estTotalHintEl);
-  render();
-});
-studentModeEl.addEventListener("change", () => {
-  localStorage.setItem(LS_MODE_KEY, studentModeEl.value);
-  render();
-});
-applyQuizBtnEl.addEventListener("click", () => {
-  const pr = quizPriorityEl.value;
-  studentModeEl.value = pr === "cheap" ? "tight" : pr === "comfort" ? "comfort" : "balanced";
-  localStorage.setItem(LS_MODE_KEY, studentModeEl.value);
-
-  const maxCommute = Number(quizCommuteEl.value || 0);
-  if (maxCommute) {
-    commuteCap = maxCommute;
-    showToast(`Mode applied with max commute ${maxCommute} mins`);
-  } else {
-    commuteCap = null;
-    showToast("Preferences applied");
-  }
-  render();
-});
-const debouncedFetchWebResults = (() => {
-  let tid;
-  return (query) => {
-    clearTimeout(tid);
-    tid = setTimeout(() => fetchWebResults(query), 350);
+function persistPrefs() {
+  state.prefs = {
+    region: els.region.value,
+    university: els.university.value,
+    budget: els.budget.value,
+    maxWalk: els.maxWalk.value,
+    needStores: els.needStores.checked,
+    type: els.typeFilter.value,
+    sort: els.sortBy.value
   };
-})();
-webQueryEl.addEventListener("input", () => {
-  const q = webQueryEl.value.trim();
-  buildWebLinks(q);
-  debouncedFetchWebResults(q);
-});
-document.getElementById("nights").addEventListener("input", (e) => {
-  renderDurationHint(e.target.value, durationUnitEl.value, durationHintEl);
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    e.target.value,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-});
-durationUnitEl.addEventListener("change", () => {
-  renderDurationHint(document.getElementById("nights").value, durationUnitEl.value, durationHintEl);
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    document.getElementById("nights").value,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-});
-estNightsEl.addEventListener("input", (e) => {
-  renderDurationHint(e.target.value, estDurationUnitEl.value, estDurationHintEl);
-  renderTotalHint(estNightlyEl.value, e.target.value, estDurationUnitEl.value, estFeesEl.value, estTotalHintEl);
-});
-estDurationUnitEl.addEventListener("change", () => {
-  renderDurationHint(estNightsEl.value, estDurationUnitEl.value, estDurationHintEl);
-  renderTotalHint(estNightlyEl.value, estNightsEl.value, estDurationUnitEl.value, estFeesEl.value, estTotalHintEl);
-});
-document.getElementById("nightlyRate").addEventListener("input", (e) => {
-  renderTotalHint(
-    e.target.value,
-    document.getElementById("nights").value,
-    durationUnitEl.value,
-    document.getElementById("fees").value,
-    totalHintEl
-  );
-});
-document.getElementById("fees").addEventListener("input", (e) => {
-  renderTotalHint(
-    document.getElementById("nightlyRate").value,
-    document.getElementById("nights").value,
-    durationUnitEl.value,
-    e.target.value,
-    totalHintEl
-  );
-});
-estNightlyEl.addEventListener("input", (e) => {
-  renderTotalHint(e.target.value, estNightsEl.value, estDurationUnitEl.value, estFeesEl.value, estTotalHintEl);
-});
-estFeesEl.addEventListener("input", (e) => {
-  renderTotalHint(estNightlyEl.value, estNightsEl.value, estDurationUnitEl.value, e.target.value, estTotalHintEl);
-});
-webResultsEl.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-action]");
-  if (!btn) return;
-  const action = btn.getAttribute("data-action");
+  saveJson(LS_PREFS, state.prefs);
+}
 
-  const title = btn.getAttribute("data-title") || "";
-  const snippet = btn.getAttribute("data-snippet") || "";
-  const link = btn.getAttribute("data-link") || "";
-  const data = { title, snippet, link };
+async function runSearch(event) {
+  if (event) event.preventDefault();
+  persistPrefs();
 
-  if (action === "import-web") {
-    fillFormFromImport(data);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    showToast("Imported into form. Add pricing and save.");
-    return;
-  }
-  if (action === "import-web-estimate") {
-    pendingImport = data;
-    estNightlyEl.value = "";
-    estNightsEl.value = 3;
-    estDurationUnitEl.value = "night";
-    renderDurationHint(estNightsEl.value, estDurationUnitEl.value, estDurationHintEl);
-    estFeesEl.value = 0;
-    renderTotalHint(estNightlyEl.value, estNightsEl.value, estDurationUnitEl.value, estFeesEl.value, estTotalHintEl);
-    estCommuteEl.value = "";
-    estimateModalEl.style.display = "flex";
-  }
-});
-closeEstimateEl.addEventListener("click", () => {
-  estimateModalEl.style.display = "none";
-  pendingImport = null;
-});
-estimateModalEl.addEventListener("click", (e) => {
-  if (e.target === estimateModalEl) {
-    estimateModalEl.style.display = "none";
-    pendingImport = null;
-  }
-});
-saveEstimateEl.addEventListener("click", () => {
-  if (!pendingImport) return;
-  const nightlyRate = Number(estNightlyEl.value);
-  const durationValue = Number(estNightsEl.value);
-  const durationUnit = estDurationUnitEl.value || "night";
-  const nights = durationToNights(durationValue, durationUnit);
-  const fees = Number(estFeesEl.value || 0);
-  const commute = Number(estCommuteEl.value || 0);
+  const params = new URLSearchParams({
+    region: els.region.value,
+    university: els.university.value,
+    budget: els.budget.value || "",
+    maxWalk: els.maxWalk.value || "",
+    stores: els.needStores.checked ? "1" : "0",
+    type: els.typeFilter.value || "",
+    q: els.keyword.value || "",
+    sort: els.sortBy.value || "best"
+  });
 
-  if (!nightlyRate || !durationValue) {
-    alert("Please enter nightly rate and duration to save.");
+  els.resultsEmpty.style.display = "block";
+  els.resultsEmpty.textContent = "Searching region…";
+  els.resultsList.innerHTML = "";
+
+  const res = await fetch(`/api/search?${params}`);
+  const data = await res.json();
+  state.results = data.results || [];
+  state.region = data.region;
+  state.university = data.university;
+
+  if (!state.results.length) {
+    els.resultsEmpty.textContent = "No accommodations matched those filters. Try widening budget or walk time.";
+  }
+
+  renderResults();
+  await updateMaps();
+  setView("search");
+}
+
+function handleActionClick(event) {
+  const btn = event.target.closest("[data-action]");
+  if (!btn) {
+    const card = event.target.closest(".place-card");
+    if (card?.dataset.id) {
+      state.activeId = card.dataset.id;
+      const place = state.results.find((p) => p.id === card.dataset.id);
+      if (place) {
+        if (state.map) state.map.panTo([place.lat, place.lng]);
+        renderResults();
+      }
+    }
     return;
   }
 
-  saveImportedStayWithEstimate(pendingImport, { nightlyRate, nights, durationValue, durationUnit, fees, commute });
-  estimateModalEl.style.display = "none";
-  pendingImport = null;
-  render();
-  showToast("Imported and saved to your list.");
+  event.preventDefault();
+  event.stopPropagation();
+  const id = btn.dataset.id;
+  const action = btn.dataset.action;
+
+  if (action === "save") toggleSaved(id);
+  if (action === "compare") toggleCompare(id);
+  if (action === "profile") loadProfile(id);
+
+  if (els.profileDrawer.classList.contains("is-open") && (action === "save" || action === "compare")) {
+    loadProfile(id);
+  }
+}
+
+async function init() {
+  const res = await fetch("/api/meta");
+  state.meta = await res.json();
+
+  els.region.innerHTML = state.meta.regions
+    .map((r) => `<option value="${r.id}">${escapeHtml(r.label || r.name)}</option>`)
+    .join("");
+
+  if (state.prefs.region) els.region.value = state.prefs.region;
+  syncUniversityOptions();
+  if (state.prefs.university) els.university.value = state.prefs.university;
+  if (state.prefs.budget) els.budget.value = state.prefs.budget;
+  if (state.prefs.maxWalk) els.maxWalk.value = state.prefs.maxWalk;
+  if (state.prefs.needStores) els.needStores.checked = true;
+  if (state.prefs.type) els.typeFilter.value = state.prefs.type;
+  if (state.prefs.sort) els.sortBy.value = state.prefs.sort;
+
+  updateCounts();
+  ensureMaps();
+  await renderSaved();
+  await renderCompare();
+  await updateMaps();
+
+  // Auto-run first search so the map isn't empty
+  await runSearch();
+}
+
+els.searchForm.addEventListener("submit", runSearch);
+els.sortBy.addEventListener("change", () => {
+  if (state.region) runSearch();
+});
+els.region.addEventListener("change", () => {
+  syncUniversityOptions();
+  persistPrefs();
+});
+els.university.addEventListener("change", persistPrefs);
+
+document.querySelectorAll(".nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => setView(btn.dataset.view));
 });
 
-resetFormMode();
-render();
-buildWebLinks("");
-renderDurationHint(document.getElementById("nights").value || 3, durationUnitEl.value, durationHintEl);
-renderDurationHint(estNightsEl.value || 3, estDurationUnitEl.value, estDurationHintEl);
-renderTotalHint(
-  document.getElementById("nightlyRate").value,
-  document.getElementById("nights").value || 3,
-  durationUnitEl.value,
-  document.getElementById("fees").value,
-  totalHintEl
-);
-renderTotalHint(estNightlyEl.value, estNightsEl.value || 3, estDurationUnitEl.value, estFeesEl.value, estTotalHintEl);
+document.getElementById("logoHome").addEventListener("click", (e) => {
+  e.preventDefault();
+  setView("search");
+});
+
+document.body.addEventListener("click", handleActionClick);
+
+document.querySelectorAll("[data-close-drawer]").forEach((el) => {
+  el.addEventListener("click", closeDrawer);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeDrawer();
+});
+
+// Popup buttons inside Leaflet use DOM inside map panes
+document.addEventListener("click", (e) => {
+  const popupBtn = e.target.closest(".leaflet-popup-content [data-action]");
+  if (popupBtn) handleActionClick(e);
+});
+
+init().catch((err) => {
+  console.error(err);
+  els.resultsEmpty.textContent = "Could not load StayCompare. Is the server running?";
+});

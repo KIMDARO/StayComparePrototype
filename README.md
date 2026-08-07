@@ -1,70 +1,34 @@
 # StayCompare
 
-## Overview
-StayCompare is a small prototype web app I built to help compare accommodation options based on total cost. The idea came from wanting a simple way to compare different stays without relying on spreadsheets or constantly switching between tabs.
-
-I have been working on this protoype for 2 separate months so it is still fairly new and decided to upload it into my Github.
-
-This project is intentionally lightweight and focuses on clarity, usability, and core JavaScript fundamentals rather than advanced frameworks.
-
----
+Student accommodation discovery by region — search an area, open place profiles, save favourites on a map, and compare them against your university, budget, and what’s nearby.
 
 ## What it does
-- Add accommodation options with pricing details  
-- Automatically calculate total cost  
-- Sort stays by price or name  
-- Shortlist favourite options  
-- Filter to view only shortlisted stays  
-- Open listing links and quickly search for images of each place  
-- Export comparisons using the browser’s print-to-PDF feature  
 
-All data is stored locally in the browser, so nothing is uploaded or shared.
+- **Search a region** (Exeter, Manchester, Bristol, Leeds, Birmingham) for student stays
+- **Pick your university** so every listing is scored against campus distance and how many students from your uni usually live there
+- **Open accommodation profiles** with rent, amenities, commute, and nearby stores / cafés / transport
+- **Save places you like** and see them pinned on the map
+- **Compare up to 4 stays** side-by-side: rent, walk/cycle to campus, store access, budget fit, and uni popularity
+- **Filter by budget**, max walk time, property type, and whether shops are close
 
----
-
-## How it’s built
-- **HTML** for structure  
-- **CSS** for styling and layout (startup-style UI)  
-- **Vanilla JavaScript** for logic and interactivity  
-- **LocalStorage** for saving data between sessions  
-- **Node.js + Express** (local API) for live web stay search
-
-The app now includes a lightweight local backend to proxy live search results.
-
----
+All shortlists and preferences are stored in the browser (LocalStorage). Listing data is served by a small Express API with curated demo accommodations.
 
 ## Run locally
-1. Install dependencies:
-   - `npm install`
-2. Start the app:
-   - `npm run dev`
-3. Open:
-   - [http://localhost:3000](http://localhost:3000)
 
-*This can also be automatically deployed using this link:
-- https://kimdaro.github.io/StayComparePrototype/
+```bash
+npm install
+npm run dev
+```
 
----
+Open [http://localhost:3000](http://localhost:3000).
 
-## Why I built it
-I wanted to strengthen my understanding of:
-- JavaScript state management  
-- DOM manipulation and event handling  
-- Working with arrays of objects  
-- Designing simple but usable interfaces  
+## How it’s built
 
-This project helped me practise building something end-to-end and thinking about user experience, not just code.
-
----
+- HTML / CSS / vanilla JavaScript
+- Express API (`/api/meta`, `/api/search`, `/api/accommodation/:id`, `/api/compare`)
+- Leaflet + OpenStreetMap for maps
+- LocalStorage for saved places, compare tray, and search preferences
 
 ## Status
-This is an **early-stage prototype**, not a finished product.  
-Features, layout, and design decisions would be refined in a production version.
 
----
-
-## Possible future improvements
-- Image previews for stays  
-- Editing existing stays  
-- Mobile-first refinements  
-- Backend support for multi-device access  
+Early-stage prototype with sample data for UK student cities. Designed to show the product concept end-to-end, not as a production housing marketplace.
