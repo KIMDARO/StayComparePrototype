@@ -1,13 +1,13 @@
 {
   "name": "staycompare-site",
-  "version": "1.0.0",
-  "description": "StayCompare is a small prototype web app I built to help compare accommodation options based on total cost. The idea came from wanting a simple way to compare different stays without relying on spreadsheets or constantly switching between tabs.",
+  "version": "2.0.0",
+  "description": "StayCompare — search student accommodations by region, save favourites on a map, and compare them against your university, budget, and nearby benefits.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": [],
+  "keywords": ["student-accommodation", "university", "map", "compare"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
