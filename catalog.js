@@ -21,6 +21,56 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function (data) {
   const { UNIVERSITIES, REGIONS, ACCOMMODATIONS, TYPE_LABELS } = data;
 
+  // Curated Unsplash photos by accommodation type (stable, hotlink-friendly).
+  const IMAGE_POOLS = {
+    "university-halls": [
+      "https://images.unsplash.com/photo-1555854877-bab0e564b8d5",
+      "https://images.unsplash.com/photo-1626178793926-22b28830aa30",
+      "https://images.unsplash.com/photo-1497366216548-37526070297c",
+      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2",
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267",
+      "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688"
+    ],
+    "private-halls": [
+      "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00",
+      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab",
+      "https://images.unsplash.com/photo-1580587771525-78b9dba3b914",
+      "https://images.unsplash.com/photo-1460317440163-593137109041",
+      "https://images.unsplash.com/photo-1560448204-603b3fc33ddc"
+    ],
+    "shared-house": [
+      "https://images.unsplash.com/photo-1568605114967-8130f3a36994",
+      "https://images.unsplash.com/photo-1570129477492-45c003edd2be",
+      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750",
+      "https://images.unsplash.com/photo-1605276374104-dee2afe26ae6",
+      "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9"
+    ],
+    "private-rent": [
+      "https://images.unsplash.com/photo-1493809842364-78817add7ffb",
+      "https://images.unsplash.com/photo-1502672023489-bb85a95f1c0d",
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267",
+      "https://images.unsplash.com/photo-1560184897-ae75f418493e",
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85"
+    ],
+    studio: [
+      "https://images.unsplash.com/photo-1536376072261-38c75010e6c9",
+      "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
+      "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af",
+      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7"
+    ]
+  };
+
+  function pickImage(place) {
+    if (place.image) return place.image;
+    const pool = IMAGE_POOLS[place.type] || IMAGE_POOLS["shared-house"];
+    let hash = 0;
+    for (let i = 0; i < place.id.length; i += 1) {
+      hash = (hash + place.id.charCodeAt(i) * (i + 1)) % 997;
+    }
+    const base = pool[hash % pool.length];
+    return `${base}?auto=format&fit=crop&w=900&h=700&q=80`;
+  }
+
   function buildFitHints(place, commute, storeWalk) {
     const hints = [];
     if (commute) {
@@ -92,6 +142,7 @@
 
     return {
       ...place,
+      image: pickImage(place),
       typeLabel: TYPE_LABELS[place.type] || place.type,
       rentMonthly: Math.round(place.rentWeekly * 4.333),
       university: university

@@ -207,6 +207,19 @@ function uniShareLabel(share) {
   return `${share}% from your uni — less common`;
 }
 
+function placeThumb(place, { large = false } = {}) {
+  const tone = escapeHtml(place.imageTone || "campus");
+  const src = escapeHtml(place.image || "");
+  const alt = escapeHtml(place.name || "Accommodation");
+  if (!src) return `<div class="thumb ${tone}" aria-hidden="true"></div>`;
+  return `
+    <div class="thumb ${tone} ${large ? "thumb-large" : ""} has-photo">
+      <img src="${src}" alt="${alt}" loading="lazy" decoding="async"
+        onerror="this.parentElement.classList.add('photo-failed'); this.remove();" />
+    </div>
+  `;
+}
+
 function placeCardHtml(place, { index = 0 } = {}) {
   const saved = isSaved(place.id);
   const comparing = inCompare(place.id);
@@ -217,7 +230,7 @@ function placeCardHtml(place, { index = 0 } = {}) {
   return `
     <article class="place-card ${saved ? "is-saved" : ""} ${state.activeId === place.id ? "is-active" : ""}"
       data-id="${place.id}" style="animation-delay:${Math.min(index * 0.04, 0.28)}s">
-      <div class="thumb ${escapeHtml(place.imageTone || "campus")}" aria-hidden="true"></div>
+      ${placeThumb(place)}
       <div class="place-body">
         <h3>${escapeHtml(place.name)}</h3>
         <div class="muted">${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}, ${escapeHtml(place.city)}</div>
@@ -323,7 +336,8 @@ function renderCompare() {
       const uniShare = place.commute?.uniShare;
       return `
         <article class="compare-card">
-          <h3>${escapeHtml(place.name)}</h3>
+          ${placeThumb(place)}
+          <h3 style="margin-top:12px;">${escapeHtml(place.name)}</h3>
           <div class="muted">${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}</div>
           <div class="meta-row" style="margin-top:10px;">
             ${budgetChip(place.budget)}
@@ -457,8 +471,14 @@ function openPlaceProfile(place) {
   ];
 
   els.profileContent.innerHTML = `
-    <div class="profile-hero thumb ${escapeHtml(place.imageTone || "campus")}">
-      <div>
+    <div class="profile-hero thumb ${escapeHtml(place.imageTone || "campus")} has-photo">
+      ${
+        place.image
+          ? `<img src="${escapeHtml(place.image)}" alt="${escapeHtml(place.name)}" loading="lazy"
+              onerror="this.parentElement.classList.add('photo-failed'); this.remove();" />`
+          : ""
+      }
+      <div class="profile-hero-copy">
         <h2 id="profileNameTitle">${escapeHtml(place.name)}</h2>
         <p>${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}, ${escapeHtml(place.city)}</p>
       </div>
