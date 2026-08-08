@@ -79,6 +79,18 @@ body {
   padding: 14px 0;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auth-launch {
+  padding: 8px 14px;
+  font-size: 0.88rem;
+}
+
 .logo {
   display: inline-flex;
   align-items: center;
@@ -388,6 +400,29 @@ input:focus, select:focus {
   min-height: 96px;
   background-size: cover;
   background-position: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.thumb.has-photo {
+  background: #d5e8e0;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
+.compare-card .thumb {
+  min-height: 140px;
+  aspect-ratio: 16 / 10;
+}
+
+.compare-card .thumb img {
+  min-height: 140px;
 }
 
 .thumb.campus {
@@ -545,12 +580,34 @@ input:focus, select:focus {
 
 .profile-hero {
   border-radius: 18px;
-  min-height: 150px;
+  min-height: 200px;
   margin-bottom: 16px;
   display: grid;
   align-content: end;
-  padding: 16px;
+  padding: 0;
   color: white;
+  overflow: hidden;
+  position: relative;
+}
+
+.profile-hero img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-hero-copy {
+  position: relative;
+  z-index: 1;
+  padding: 18px 16px 16px;
+  background: linear-gradient(180deg, transparent 0%, rgba(10, 30, 26, 0.78) 70%);
+}
+
+.profile-hero.photo-failed .profile-hero-copy,
+.profile-hero:not(.has-photo) .profile-hero-copy {
+  background: transparent;
 }
 
 .profile-hero h2 {
@@ -661,6 +718,126 @@ input:focus, select:focus {
   padding: 22px 0 36px;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.account-card {
+  max-width: 560px;
+  padding: 22px;
+  border-radius: var(--radius);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  margin-bottom: 48px;
+}
+
+.account-card h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.account-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.4rem;
+  color: white;
+  background: linear-gradient(135deg, var(--teal-deep), var(--teal) 60%, var(--accent));
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-form textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  color: var(--ink);
+  resize: vertical;
+  font: inherit;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(16, 35, 31, 0.4);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.modal-backdrop[hidden] {
+  display: none !important;
+}
+
+.modal-card {
+  position: relative;
+  width: min(420px, 100%);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow);
+  padding: 22px;
+  animation: fade-up 0.3s ease both;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.auth-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.auth-tab.is-active {
+  background: rgba(15, 107, 92, 0.1);
+  color: var(--teal-deep);
+}
+
+.auth-form {
+  margin-top: 10px;
+}
+
+.form-error {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(194, 59, 59, 0.1);
+  color: var(--bad);
+  font-size: 0.9rem;
 }
 
 .leaflet-container { font: inherit; }

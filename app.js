@@ -1,5 +1,8 @@
-const LS_SAVED = "staycompare_saved_v2";
-const LS_COMPARE = "staycompare_compare_v2";
+const catalog = window.StayCompareCatalog;
+const auth = window.StayCompareAuth;
+
+const LS_GUEST_SAVED = "staycompare_guest_saved_v2";
+const LS_GUEST_COMPARE = "staycompare_guest_compare_v2";
 const LS_PREFS = "staycompare_prefs_v2";
 
 const state = {
@@ -7,10 +10,12 @@ const state = {
   results: [],
   region: null,
   university: null,
-  savedIds: loadJson(LS_SAVED, []),
-  compareIds: loadJson(LS_COMPARE, []),
+  user: null,
+  savedIds: [],
+  compareIds: [],
   prefs: loadJson(LS_PREFS, {}),
   activeId: null,
+  pendingSaveId: null,
   map: null,
   savedMap: null,
   markers: [],
@@ -33,6 +38,7 @@ const els = {
   resultsSub: document.getElementById("resultsSub"),
   savedList: document.getElementById("savedList"),
   savedEmpty: document.getElementById("savedEmpty"),
+  savedLead: document.getElementById("savedLead"),
   savedCount: document.getElementById("savedCount"),
   compareCount: document.getElementById("compareCount"),
   compareGrid: document.getElementById("compareGrid"),
@@ -41,7 +47,33 @@ const els = {
   profileContent: document.getElementById("profileContent"),
   toast: document.getElementById("toast"),
   map: document.getElementById("map"),
-  savedMap: document.getElementById("savedMap")
+  savedMap: document.getElementById("savedMap"),
+  authLaunchBtn: document.getElementById("authLaunchBtn"),
+  authModal: document.getElementById("authModal"),
+  authCloseBtn: document.getElementById("authCloseBtn"),
+  authTitle: document.getElementById("authTitle"),
+  authLead: document.getElementById("authLead"),
+  authError: document.getElementById("authError"),
+  loginForm: document.getElementById("loginForm"),
+  signupForm: document.getElementById("signupForm"),
+  signupUniversity: document.getElementById("signupUniversity"),
+  accountSignedOut: document.getElementById("accountSignedOut"),
+  accountSignedIn: document.getElementById("accountSignedIn"),
+  accountAvatar: document.getElementById("accountAvatar"),
+  accountName: document.getElementById("accountName"),
+  accountEmail: document.getElementById("accountEmail"),
+  profileForm: document.getElementById("profileForm"),
+  profileName: document.getElementById("profileName"),
+  profileUniversity: document.getElementById("profileUniversity"),
+  profileBudget: document.getElementById("profileBudget"),
+  profileBio: document.getElementById("profileBio"),
+  profileSavedCount: document.getElementById("profileSavedCount"),
+  profileCompareCount: document.getElementById("profileCompareCount"),
+  profileJoined: document.getElementById("profileJoined"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  accountSignupBtn: document.getElementById("accountSignupBtn"),
+  accountLoginBtn: document.getElementById("accountLoginBtn"),
+  accountNavBtn: document.getElementById("accountNavBtn")
 };
 
 function loadJson(key, fallback) {
@@ -77,6 +109,29 @@ function showToast(message) {
   showToast.tid = setTimeout(() => els.toast.classList.remove("show"), 1600);
 }
 
+function persistLists() {
+  if (state.user) {
+    auth.updateProfile({
+      savedIds: state.savedIds,
+      compareIds: state.compareIds
+    });
+    state.user = auth.getSessionUser();
+  } else {
+    saveJson(LS_GUEST_SAVED, state.savedIds);
+    saveJson(LS_GUEST_COMPARE, state.compareIds);
+  }
+}
+
+function loadListsFromUserOrGuest() {
+  if (state.user) {
+    state.savedIds = [...(state.user.savedIds || [])];
+    state.compareIds = [...(state.user.compareIds || [])];
+  } else {
+    state.savedIds = loadJson(LS_GUEST_SAVED, []);
+    state.compareIds = loadJson(LS_GUEST_COMPARE, []);
+  }
+}
+
 function isSaved(id) {
   return state.savedIds.includes(id);
 }
@@ -85,16 +140,27 @@ function inCompare(id) {
   return state.compareIds.includes(id);
 }
 
+function ensureLoggedInForSave(id) {
+  if (state.user) return true;
+  state.pendingSaveId = id;
+  openAuthModal("signup");
+  showToast("Sign up or log in to save places to your profile");
+  return false;
+}
+
 function toggleSaved(id) {
+  if (!ensureLoggedInForSave(id)) return;
+
   if (isSaved(id)) {
     state.savedIds = state.savedIds.filter((x) => x !== id);
     showToast("Removed from saved");
   } else {
     state.savedIds = [id, ...state.savedIds];
-    showToast("Saved — view it on the map");
+    showToast("Saved to your profile map");
   }
-  saveJson(LS_SAVED, state.savedIds);
+  persistLists();
   updateCounts();
+  renderAuthChrome();
   renderResults();
   renderSaved();
   updateMaps();
@@ -111,8 +177,9 @@ function toggleCompare(id) {
     state.compareIds = [...state.compareIds, id];
     showToast("Added to compare");
   }
-  saveJson(LS_COMPARE, state.compareIds);
+  persistLists();
   updateCounts();
+  renderAuthChrome();
   renderResults();
   renderSaved();
   renderCompare();
@@ -140,6 +207,19 @@ function uniShareLabel(share) {
   return `${share}% from your uni — less common`;
 }
 
+function placeThumb(place, { large = false } = {}) {
+  const tone = escapeHtml(place.imageTone || "campus");
+  const src = escapeHtml(place.image || "");
+  const alt = escapeHtml(place.name || "Accommodation");
+  if (!src) return `<div class="thumb ${tone}" aria-hidden="true"></div>`;
+  return `
+    <div class="thumb ${tone} ${large ? "thumb-large" : ""} has-photo">
+      <img src="${src}" alt="${alt}" loading="lazy" decoding="async"
+        onerror="this.parentElement.classList.add('photo-failed'); this.remove();" />
+    </div>
+  `;
+}
+
 function placeCardHtml(place, { index = 0 } = {}) {
   const saved = isSaved(place.id);
   const comparing = inCompare(place.id);
@@ -150,7 +230,7 @@ function placeCardHtml(place, { index = 0 } = {}) {
   return `
     <article class="place-card ${saved ? "is-saved" : ""} ${state.activeId === place.id ? "is-active" : ""}"
       data-id="${place.id}" style="animation-delay:${Math.min(index * 0.04, 0.28)}s">
-      <div class="thumb ${escapeHtml(place.imageTone || "campus")}" aria-hidden="true"></div>
+      ${placeThumb(place)}
       <div class="place-body">
         <h3>${escapeHtml(place.name)}</h3>
         <div class="muted">${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}, ${escapeHtml(place.city)}</div>
@@ -199,47 +279,44 @@ function renderResults() {
   }
 }
 
-async function fetchSavedPlaces() {
-  if (!state.savedIds.length) return [];
-  const university = els.university.value || state.prefs.university || "";
-  const budget = els.budget.value || state.prefs.budget || "";
-  const places = await Promise.all(
-    state.savedIds.map(async (id) => {
-      const params = new URLSearchParams();
-      if (university) params.set("university", university);
-      if (budget) params.set("budget", budget);
-      const res = await fetch(`/api/accommodation/${id}?${params}`);
-      if (!res.ok) return null;
-      return res.json();
-    })
-  );
-  return places.filter(Boolean);
+function queryContext() {
+  return {
+    university: els.university.value || state.prefs.university || state.user?.universityId || "",
+    budget: els.budget.value || state.prefs.budget || state.user?.budgetWeekly || ""
+  };
 }
 
-async function renderSaved() {
-  const places = await fetchSavedPlaces();
+function fetchSavedPlaces() {
+  if (!state.savedIds.length) return [];
+  const ctx = queryContext();
+  return state.savedIds
+    .map((id) => catalog.getAccommodation(id, ctx))
+    .filter(Boolean);
+}
+
+function renderSaved() {
+  const places = fetchSavedPlaces();
   els.savedEmpty.style.display = places.length ? "none" : "block";
+  if (!state.user) {
+    els.savedEmpty.textContent = "Sign in to save places to your profile — they’ll appear here and on the map.";
+    els.savedLead.textContent = "Saved places are kept on your account profile.";
+  } else {
+    els.savedEmpty.textContent = "Save places you like from search — they’ll show up here and on the map.";
+    els.savedLead.textContent = `Hi ${state.user.name} — your shortlist is pinned on the map relative to campus.`;
+  }
   els.savedList.innerHTML = places.map((p, i) => placeCardHtml(p, { index: i })).join("");
   return places;
 }
 
-async function renderCompare() {
+function renderCompare() {
   if (!state.compareIds.length) {
     els.compareEmpty.style.display = "block";
     els.compareGrid.innerHTML = "";
     return;
   }
 
-  const university = els.university.value || state.prefs.university || "";
-  const budget = els.budget.value || state.prefs.budget || "";
-  const params = new URLSearchParams({
-    ids: state.compareIds.join(","),
-    university,
-    budget
-  });
-  const res = await fetch(`/api/compare?${params}`);
-  const data = await res.json();
-  const items = data.items || [];
+  const ctx = queryContext();
+  const { items } = catalog.compare(state.compareIds, ctx);
 
   els.compareEmpty.style.display = items.length ? "none" : "block";
   if (!items.length) {
@@ -259,7 +336,8 @@ async function renderCompare() {
       const uniShare = place.commute?.uniShare;
       return `
         <article class="compare-card">
-          <h3>${escapeHtml(place.name)}</h3>
+          ${placeThumb(place)}
+          <h3 style="margin-top:12px;">${escapeHtml(place.name)}</h3>
           <div class="muted">${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}</div>
           <div class="meta-row" style="margin-top:10px;">
             ${budgetChip(place.budget)}
@@ -316,7 +394,7 @@ function clearMarkers(mapKey) {
   else state.markers = [];
 }
 
-function plotPlaces(map, places, markerStore, { includeUni = true, includeSavedExtra = true } = {}) {
+function plotPlaces(map, places, markerStore, { includeUni = true } = {}) {
   const bounds = [];
 
   if (includeUni && state.university) {
@@ -348,27 +426,20 @@ function plotPlaces(map, places, markerStore, { includeUni = true, includeSavedE
     bounds.push([place.lat, place.lng]);
   });
 
-  if (includeSavedExtra) {
-    // saved places not in current results still show on search map
-  }
-
   if (bounds.length) {
     map.fitBounds(bounds, { padding: [36, 36], maxZoom: 14 });
   }
 }
 
-async function updateMaps() {
+function updateMaps() {
   ensureMaps();
   clearMarkers("search");
   clearMarkers("saved");
 
-  const savedPlaces = await fetchSavedPlaces();
-
-  // Search map: results + highlight saved
+  const savedPlaces = fetchSavedPlaces();
   const searchPlaces = state.results.length ? state.results : savedPlaces;
   plotPlaces(state.map, searchPlaces, state.markers, { includeUni: true });
 
-  // Also pin saved that aren't in results
   if (state.results.length) {
     const resultIds = new Set(state.results.map((r) => r.id));
     savedPlaces
@@ -389,7 +460,7 @@ async function updateMaps() {
   }, 80);
 }
 
-function openProfile(place) {
+function openPlaceProfile(place) {
   state.activeId = place.id;
   const walk = place.commute?.walkMins;
   const uniShare = place.commute?.uniShare;
@@ -400,9 +471,15 @@ function openProfile(place) {
   ];
 
   els.profileContent.innerHTML = `
-    <div class="profile-hero thumb ${escapeHtml(place.imageTone || "campus")}">
-      <div>
-        <h2 id="profileName">${escapeHtml(place.name)}</h2>
+    <div class="profile-hero thumb ${escapeHtml(place.imageTone || "campus")} has-photo">
+      ${
+        place.image
+          ? `<img src="${escapeHtml(place.image)}" alt="${escapeHtml(place.name)}" loading="lazy"
+              onerror="this.parentElement.classList.add('photo-failed'); this.remove();" />`
+          : ""
+      }
+      <div class="profile-hero-copy">
+        <h2 id="profileNameTitle">${escapeHtml(place.name)}</h2>
         <p>${escapeHtml(place.typeLabel)} · ${escapeHtml(place.area)}, ${escapeHtml(place.city)}</p>
       </div>
     </div>
@@ -440,7 +517,7 @@ function openProfile(place) {
     <div class="profile-section">
       <h3>Why it might suit you</h3>
       <ul class="hint-list">
-        ${(place.fitHints || []).map((h) => `<li>${escapeHtml(h)}</li>`).join("") || "<li>Open search with your uni and budget for tailored hints.</li>"}
+        ${(place.fitHints || []).map((h) => `<li>${escapeHtml(h)}</li>`).join("") || "<li>Set your uni and budget for tailored hints.</li>"}
       </ul>
     </div>
 
@@ -491,19 +568,13 @@ function openProfile(place) {
   renderResults();
 }
 
-async function loadProfile(id) {
-  const university = els.university.value || state.prefs.university || "";
-  const budget = els.budget.value || state.prefs.budget || "";
-  const params = new URLSearchParams();
-  if (university) params.set("university", university);
-  if (budget) params.set("budget", budget);
-  const res = await fetch(`/api/accommodation/${id}?${params}`);
-  if (!res.ok) {
+function loadPlaceProfile(id) {
+  const place = catalog.getAccommodation(id, queryContext());
+  if (!place) {
     showToast("Could not open profile");
     return;
   }
-  const place = await res.json();
-  openProfile(place);
+  openPlaceProfile(place);
 }
 
 function closeDrawer() {
@@ -520,18 +591,33 @@ function setView(name) {
   if (view) view.classList.add("is-active");
 
   if (name === "saved") {
-    renderSaved().then(() => updateMaps());
+    renderSaved();
+    updateMaps();
   }
   if (name === "compare") renderCompare();
+  if (name === "account") renderAccountView();
   if (name === "search") {
     setTimeout(() => state.map && state.map.invalidateSize(), 100);
+  }
+}
+
+function fillUniversitySelect(selectEl, selected) {
+  selectEl.innerHTML = state.meta.universities
+    .map((u) => `<option value="${u.id}">${escapeHtml(u.name)}</option>`)
+    .join("");
+  if (selected && state.meta.universities.some((u) => u.id === selected)) {
+    selectEl.value = selected;
   }
 }
 
 function syncUniversityOptions() {
   const regionId = els.region.value;
   const unis = state.meta.universities.filter((u) => !regionId || u.region === regionId);
-  const current = els.university.value || state.prefs.university || "";
+  const current =
+    els.university.value ||
+    state.prefs.university ||
+    state.user?.universityId ||
+    "";
   els.university.innerHTML = unis
     .map((u) => `<option value="${u.id}">${escapeHtml(u.name)}</option>`)
     .join("");
@@ -551,11 +637,15 @@ function persistPrefs() {
   saveJson(LS_PREFS, state.prefs);
 }
 
-async function runSearch(event) {
+function runSearch(event) {
   if (event) event.preventDefault();
   persistPrefs();
 
-  const params = new URLSearchParams({
+  els.resultsEmpty.style.display = "block";
+  els.resultsEmpty.textContent = "Searching region…";
+  els.resultsList.innerHTML = "";
+
+  const data = catalog.search({
     region: els.region.value,
     university: els.university.value,
     budget: els.budget.value || "",
@@ -566,22 +656,17 @@ async function runSearch(event) {
     sort: els.sortBy.value || "best"
   });
 
-  els.resultsEmpty.style.display = "block";
-  els.resultsEmpty.textContent = "Searching region…";
-  els.resultsList.innerHTML = "";
-
-  const res = await fetch(`/api/search?${params}`);
-  const data = await res.json();
   state.results = data.results || [];
   state.region = data.region;
   state.university = data.university;
 
   if (!state.results.length) {
-    els.resultsEmpty.textContent = "No accommodations matched those filters. Try widening budget or walk time.";
+    els.resultsEmpty.textContent =
+      "No accommodations matched those filters. Try widening budget or walk time.";
   }
 
   renderResults();
-  await updateMaps();
+  updateMaps();
   setView("search");
 }
 
@@ -607,16 +692,142 @@ function handleActionClick(event) {
 
   if (action === "save") toggleSaved(id);
   if (action === "compare") toggleCompare(id);
-  if (action === "profile") loadProfile(id);
+  if (action === "profile") loadPlaceProfile(id);
 
-  if (els.profileDrawer.classList.contains("is-open") && (action === "save" || action === "compare")) {
-    loadProfile(id);
+  if (
+    els.profileDrawer.classList.contains("is-open") &&
+    (action === "save" || action === "compare") &&
+    state.user
+  ) {
+    loadPlaceProfile(id);
   }
 }
 
+/* ---------- Auth / account ---------- */
+
+function renderAuthChrome() {
+  if (state.user) {
+    els.authLaunchBtn.textContent = state.user.name.split(" ")[0];
+    els.accountNavBtn.textContent = "Profile";
+  } else {
+    els.authLaunchBtn.textContent = "Sign in";
+    els.accountNavBtn.textContent = "Account";
+  }
+}
+
+function renderAccountView() {
+  if (!state.user) {
+    els.accountSignedOut.hidden = false;
+    els.accountSignedIn.hidden = true;
+    return;
+  }
+
+  els.accountSignedOut.hidden = true;
+  els.accountSignedIn.hidden = false;
+  els.accountAvatar.textContent = (state.user.name || "S").charAt(0).toUpperCase();
+  els.accountName.textContent = state.user.name;
+  els.accountEmail.textContent = state.user.email;
+  els.profileName.value = state.user.name || "";
+  fillUniversitySelect(els.profileUniversity, state.user.universityId);
+  els.profileBudget.value = state.user.budgetWeekly || "";
+  els.profileBio.value = state.user.bio || "";
+  els.profileSavedCount.textContent = String(state.savedIds.length);
+  els.profileCompareCount.textContent = String(state.compareIds.length);
+  els.profileJoined.textContent = state.user.createdAt
+    ? new Date(state.user.createdAt).toLocaleDateString()
+    : "—";
+}
+
+function openAuthModal(tab = "login") {
+  els.authModal.hidden = false;
+  setAuthTab(tab);
+  els.authError.hidden = true;
+  fillUniversitySelect(
+    els.signupUniversity,
+    els.university.value || state.user?.universityId || ""
+  );
+}
+
+function closeAuthModal() {
+  els.authModal.hidden = true;
+  els.authError.hidden = true;
+  state.pendingSaveId = null;
+}
+
+function setAuthTab(tab) {
+  document.querySelectorAll(".auth-tab").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.authTab === tab);
+  });
+  const isLogin = tab === "login";
+  els.loginForm.hidden = !isLogin;
+  els.signupForm.hidden = isLogin;
+  els.authTitle.textContent = isLogin ? "Welcome back" : "Create your profile";
+  els.authLead.textContent = isLogin
+    ? "Log in to sync your saved places and profile."
+    : "Sign up to save favourites, set your uni, and keep a shortlist.";
+}
+
+function showAuthError(message) {
+  els.authError.textContent = message;
+  els.authError.hidden = false;
+}
+
+function applyUserDefaults() {
+  if (!state.user) return;
+  if (state.user.universityId) {
+    const uni = state.meta.universities.find((u) => u.id === state.user.universityId);
+    if (uni) {
+      els.region.value = uni.region;
+      syncUniversityOptions();
+      els.university.value = uni.id;
+    }
+  }
+  if (state.user.budgetWeekly) els.budget.value = state.user.budgetWeekly;
+}
+
+function onAuthSuccess(user) {
+  state.user = user;
+
+  // Merge guest shortlist into the account once
+  const guestSaved = loadJson(LS_GUEST_SAVED, []);
+  const guestCompare = loadJson(LS_GUEST_COMPARE, []);
+  const mergedSaved = [...new Set([...(user.savedIds || []), ...guestSaved])];
+  const mergedCompare = [...new Set([...(user.compareIds || []), ...guestCompare])].slice(0, 4);
+  auth.updateProfile({ savedIds: mergedSaved, compareIds: mergedCompare });
+  state.user = auth.getSessionUser();
+  saveJson(LS_GUEST_SAVED, []);
+  saveJson(LS_GUEST_COMPARE, []);
+
+  loadListsFromUserOrGuest();
+  applyUserDefaults();
+  persistPrefs();
+  updateCounts();
+  renderAuthChrome();
+  renderAccountView();
+  renderResults();
+  renderSaved();
+  renderCompare();
+  updateMaps();
+  closeAuthModal();
+
+  if (state.pendingSaveId) {
+    const id = state.pendingSaveId;
+    state.pendingSaveId = null;
+    if (!isSaved(id)) toggleSaved(id);
+  }
+
+  showToast(`Signed in as ${user.name}`);
+}
+
 async function init() {
-  const res = await fetch("/api/meta");
-  state.meta = await res.json();
+  if (!catalog) {
+    els.resultsEmpty.textContent = "Catalog failed to load. Check that data.js and catalog.js are present.";
+    return;
+  }
+
+  state.meta = catalog.getMeta();
+  state.user = auth.getSessionUser();
+  loadListsFromUserOrGuest();
 
   els.region.innerHTML = state.meta.regions
     .map((r) => `<option value="${r.id}">${escapeHtml(r.label || r.name)}</option>`)
@@ -624,21 +835,26 @@ async function init() {
 
   if (state.prefs.region) els.region.value = state.prefs.region;
   syncUniversityOptions();
+  applyUserDefaults();
+
   if (state.prefs.university) els.university.value = state.prefs.university;
-  if (state.prefs.budget) els.budget.value = state.prefs.budget;
+  if (state.prefs.budget && !els.budget.value) els.budget.value = state.prefs.budget;
   if (state.prefs.maxWalk) els.maxWalk.value = state.prefs.maxWalk;
   if (state.prefs.needStores) els.needStores.checked = true;
   if (state.prefs.type) els.typeFilter.value = state.prefs.type;
   if (state.prefs.sort) els.sortBy.value = state.prefs.sort;
 
-  updateCounts();
-  ensureMaps();
-  await renderSaved();
-  await renderCompare();
-  await updateMaps();
+  fillUniversitySelect(els.signupUniversity, els.university.value);
+  fillUniversitySelect(els.profileUniversity, state.user?.universityId || els.university.value);
 
-  // Auto-run first search so the map isn't empty
-  await runSearch();
+  updateCounts();
+  renderAuthChrome();
+  renderAccountView();
+  ensureMaps();
+  renderSaved();
+  renderCompare();
+  updateMaps();
+  runSearch();
 }
 
 els.searchForm.addEventListener("submit", runSearch);
@@ -667,16 +883,86 @@ document.querySelectorAll("[data-close-drawer]").forEach((el) => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeDrawer();
+  if (e.key === "Escape") {
+    closeDrawer();
+    closeAuthModal();
+  }
 });
 
-// Popup buttons inside Leaflet use DOM inside map panes
-document.addEventListener("click", (e) => {
-  const popupBtn = e.target.closest(".leaflet-popup-content [data-action]");
-  if (popupBtn) handleActionClick(e);
+els.authLaunchBtn.addEventListener("click", () => {
+  if (state.user) setView("account");
+  else openAuthModal("login");
+});
+els.accountSignupBtn.addEventListener("click", () => openAuthModal("signup"));
+els.accountLoginBtn.addEventListener("click", () => openAuthModal("login"));
+els.authCloseBtn.addEventListener("click", closeAuthModal);
+els.authModal.addEventListener("click", (e) => {
+  if (e.target === els.authModal) closeAuthModal();
 });
 
-init().catch((err) => {
-  console.error(err);
-  els.resultsEmpty.textContent = "Could not load StayCompare. Is the server running?";
+document.querySelectorAll(".auth-tab").forEach((btn) => {
+  btn.addEventListener("click", () => setAuthTab(btn.dataset.authTab));
 });
+
+els.loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const result = await auth.login({
+    email: document.getElementById("loginEmail").value,
+    password: document.getElementById("loginPassword").value
+  });
+  if (!result.ok) return showAuthError(result.error);
+  onAuthSuccess(result.user);
+});
+
+els.signupForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const result = await auth.signup({
+    name: document.getElementById("signupName").value,
+    email: document.getElementById("signupEmail").value,
+    password: document.getElementById("signupPassword").value,
+    universityId: document.getElementById("signupUniversity").value,
+    budgetWeekly: document.getElementById("signupBudget").value
+  });
+  if (!result.ok) return showAuthError(result.error);
+  onAuthSuccess(result.user);
+  setView("account");
+});
+
+els.profileForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const result = auth.updateProfile({
+    name: els.profileName.value,
+    universityId: els.profileUniversity.value,
+    budgetWeekly: els.profileBudget.value,
+    bio: els.profileBio.value,
+    savedIds: state.savedIds,
+    compareIds: state.compareIds
+  });
+  if (!result.ok) {
+    showToast(result.error || "Could not save profile");
+    return;
+  }
+  state.user = result.user;
+  applyUserDefaults();
+  persistPrefs();
+  renderAuthChrome();
+  renderAccountView();
+  runSearch();
+  showToast("Profile saved");
+});
+
+els.logoutBtn.addEventListener("click", () => {
+  auth.logout();
+  state.user = null;
+  loadListsFromUserOrGuest();
+  updateCounts();
+  renderAuthChrome();
+  renderAccountView();
+  renderResults();
+  renderSaved();
+  renderCompare();
+  updateMaps();
+  showToast("Logged out");
+});
+
+init();
