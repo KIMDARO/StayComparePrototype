@@ -19,11 +19,15 @@
         <span class="logo-mark" aria-hidden="true"></span>
         <span class="logo-text">StayCompare</span>
       </a>
-      <nav class="nav" aria-label="Primary">
-        <button type="button" class="nav-btn is-active" data-view="search">Search</button>
-        <button type="button" class="nav-btn" data-view="saved">Saved <span id="savedCount" class="count-chip">0</span></button>
-        <button type="button" class="nav-btn" data-view="compare">Compare <span id="compareCount" class="count-chip">0</span></button>
-      </nav>
+      <div class="header-actions">
+        <nav class="nav" aria-label="Primary">
+          <button type="button" class="nav-btn is-active" data-view="search">Search</button>
+          <button type="button" class="nav-btn" data-view="saved">Saved <span id="savedCount" class="count-chip">0</span></button>
+          <button type="button" class="nav-btn" data-view="compare">Compare <span id="compareCount" class="count-chip">0</span></button>
+          <button type="button" class="nav-btn" data-view="account" id="accountNavBtn">Account</button>
+        </nav>
+        <button type="button" class="btn secondary auth-launch" id="authLaunchBtn">Sign in</button>
+      </div>
     </div>
   </header>
 
@@ -34,7 +38,7 @@
         <div class="shell hero-inner">
           <p class="eyebrow">Student stays · by region</p>
           <h1 class="brand-hero">StayCompare</h1>
-          <p class="hero-lead">Search a region, open real accommodation profiles, save favourites on the map, and compare them against your uni, budget, and what’s nearby.</p>
+          <p class="hero-lead">Search a region, open accommodation profiles, save favourites on the map, and compare them against your uni, budget, and what’s nearby.</p>
 
           <form id="searchForm" class="search-panel" autocomplete="off">
             <div class="search-grid">
@@ -115,7 +119,7 @@
     <section id="view-saved" class="view">
       <div class="shell section-head">
         <h2>Saved places</h2>
-        <p class="muted">Your shortlist, pinned on the map so you can see how they sit relative to campus and each other.</p>
+        <p class="muted" id="savedLead">Your shortlist, pinned on the map so you can see how they sit relative to campus and each other.</p>
       </div>
       <div class="shell workspace">
         <div class="list-pane">
@@ -139,26 +143,114 @@
         <div id="compareEmpty" class="empty-state">Add up to 4 places to compare from search or saved profiles.</div>
       </div>
     </section>
+
+    <!-- ACCOUNT / USER PROFILE -->
+    <section id="view-account" class="view">
+      <div class="shell section-head">
+        <h2>Your profile</h2>
+        <p class="muted">Sign up to keep saved places and preferences with your account on this device.</p>
+      </div>
+      <div class="shell">
+        <div id="accountSignedOut" class="account-card">
+          <h3>You’re not signed in</h3>
+          <p class="muted">Create an account to save favourites, keep your uni/budget defaults, and build a shortlist that sticks between visits.</p>
+          <div class="card-actions">
+            <button type="button" class="btn primary" id="accountSignupBtn">Sign up</button>
+            <button type="button" class="btn secondary" id="accountLoginBtn">Log in</button>
+          </div>
+        </div>
+
+        <div id="accountSignedIn" class="account-card" hidden>
+          <div class="account-hero">
+            <div class="avatar" id="accountAvatar">S</div>
+            <div>
+              <h3 id="accountName">Student</h3>
+              <p class="muted" id="accountEmail">email@example.com</p>
+            </div>
+          </div>
+
+          <form id="profileForm" class="profile-form">
+            <label class="field">
+              <span>Display name</span>
+              <input id="profileName" required maxlength="60" />
+            </label>
+            <label class="field">
+              <span>University</span>
+              <select id="profileUniversity"></select>
+            </label>
+            <label class="field">
+              <span>Weekly budget (£)</span>
+              <input id="profileBudget" type="number" min="50" step="5" placeholder="e.g. 160" />
+            </label>
+            <label class="field">
+              <span>About you</span>
+              <textarea id="profileBio" rows="3" maxlength="280" placeholder="Course, year, what you’re looking for…"></textarea>
+            </label>
+            <div class="place-stats" style="margin-top:8px;">
+              <div class="stat"><span class="label">Saved</span><span class="value" id="profileSavedCount">0</span></div>
+              <div class="stat"><span class="label">Comparing</span><span class="value" id="profileCompareCount">0</span></div>
+              <div class="stat"><span class="label">Member</span><span class="value" id="profileJoined">—</span></div>
+            </div>
+            <div class="card-actions">
+              <button type="submit" class="btn primary">Save profile</button>
+              <button type="button" class="btn danger-soft" id="logoutBtn">Log out</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
   </main>
 
-  <!-- PROFILE DRAWER -->
+  <!-- ACCOMMODATION PROFILE DRAWER -->
   <aside id="profileDrawer" class="drawer" aria-hidden="true">
     <div class="drawer-backdrop" data-close-drawer></div>
-    <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="profileName">
+    <div class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="profileNameTitle">
       <button type="button" class="icon-btn drawer-close" data-close-drawer aria-label="Close profile">×</button>
       <div id="profileContent"></div>
     </div>
   </aside>
 
+  <!-- AUTH MODAL -->
+  <div id="authModal" class="modal-backdrop" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button type="button" class="icon-btn modal-close" id="authCloseBtn" aria-label="Close">×</button>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab is-active" data-auth-tab="login">Log in</button>
+        <button type="button" class="auth-tab" data-auth-tab="signup">Sign up</button>
+      </div>
+      <h3 id="authTitle">Welcome back</h3>
+      <p class="muted" id="authLead">Log in to sync your saved places and profile.</p>
+      <p class="form-error" id="authError" hidden></p>
+
+      <form id="loginForm" class="auth-form">
+        <label class="field"><span>Email</span><input id="loginEmail" type="email" required autocomplete="email" /></label>
+        <label class="field"><span>Password</span><input id="loginPassword" type="password" required minlength="6" autocomplete="current-password" /></label>
+        <button type="submit" class="btn primary" style="width:100%;margin-top:12px;">Log in</button>
+      </form>
+
+      <form id="signupForm" class="auth-form" hidden>
+        <label class="field"><span>Name</span><input id="signupName" required maxlength="60" autocomplete="name" /></label>
+        <label class="field"><span>Email</span><input id="signupEmail" type="email" required autocomplete="email" /></label>
+        <label class="field"><span>Password</span><input id="signupPassword" type="password" required minlength="6" autocomplete="new-password" /></label>
+        <label class="field"><span>University</span><select id="signupUniversity"></select></label>
+        <label class="field"><span>Weekly budget (£)</span><input id="signupBudget" type="number" min="50" step="5" placeholder="optional" /></label>
+        <button type="submit" class="btn primary" style="width:100%;margin-top:12px;">Create account</button>
+      </form>
+    </div>
+  </div>
+
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <footer class="site-footer">
     <div class="shell">
-      <p>StayCompare prototype — student accommodation discovery by region. Built with HTML, CSS, vanilla JS &amp; Express.</p>
+      <p>StayCompare prototype — works on GitHub Pages (no server required). Accounts are stored in your browser for this demo.</p>
     </div>
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="./data.js"></script>
+  <script src="./catalog.js"></script>
+  <script src="./auth.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

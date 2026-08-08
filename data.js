@@ -1,7 +1,15 @@
 /**
  * Seed data for StayCompare — student accommodation discovery.
  * Coordinates are approximate and used for map + distance demos.
+ * Works in Node (module.exports) and the browser (window.StayCompareData).
  */
+(function (root, factory) {
+  const data = factory();
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = data;
+  }
+  root.StayCompareData = data;
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
 
 const UNIVERSITIES = [
   {
@@ -728,9 +736,11 @@ const TYPE_LABELS = {
   studio: "Studio"
 };
 
-module.exports = {
+return {
   UNIVERSITIES,
   REGIONS,
   ACCOMMODATIONS,
   TYPE_LABELS
 };
+
+});
