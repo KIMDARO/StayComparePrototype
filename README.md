@@ -6,7 +6,8 @@ Works on **GitHub Pages** (static) and locally with Node.
 
 ## What it does
 
-- **Search a region** (Exeter, Manchester, Bristol, Leeds, Birmingham) for student stays
+- **Search a region** across 16 UK student cities (including London, Edinburgh, Manchester, Nottingham, and more)
+- Browse **university halls**, **private student halls**, **shared houses**, **private rentals**, and **studios**
 - **Pick your university** so listings are scored against campus distance and how many students from your uni usually live there
 - **Open accommodation profiles** with rent, amenities, commute, and nearby stores / cafés / transport
 - **Sign up / log in** to a browser-based profile (name, uni, budget, bio)
