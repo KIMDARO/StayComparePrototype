@@ -840,6 +840,73 @@ input:focus, select:focus {
   font-size: 0.9rem;
 }
 
+.add-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+  padding-bottom: 48px;
+  align-items: start;
+}
+
+.add-card .tiny {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+}
+
+.link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.link-row input {
+  flex: 1;
+}
+
+.preview-box {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(15, 107, 92, 0.06);
+  border: 1px solid var(--line);
+}
+
+.preview-box img {
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #d5e8e0;
+}
+
+.year-prices {
+  display: grid;
+  gap: 8px;
+}
+
+.year-price-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 107, 92, 0.05);
+  font-size: 0.9rem;
+}
+
+.year-price-row.is-current {
+  background: rgba(15, 107, 92, 0.12);
+  font-weight: 700;
+}
+
+@media (max-width: 960px) {
+  .add-layout { grid-template-columns: 1fr; }
+  .link-row { flex-direction: column; align-items: stretch; }
+}
+
 .leaflet-container { font: inherit; }
 
 .marker-pin {

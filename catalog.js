@@ -112,7 +112,7 @@
     score += Math.max(0, 30 - commute.walkMins);
     score += Math.min(25, commute.uniShare / 4);
 
-    const nearestStore = (place.nearby.stores || [])
+    const nearestStore = (place.nearby?.stores || [])
       .slice()
       .sort((a, b) => a.walkMins - b.walkMins)[0];
     if (nearestStore) score += Math.max(0, 15 - nearestStore.walkMins);
@@ -130,21 +130,44 @@
     return Math.max(0, Math.min(100, Math.round(score)));
   }
 
+  function academicYearPrices(place) {
+    if (Array.isArray(place.yearPrices) && place.yearPrices.length) {
+      return place.yearPrices;
+    }
+    // Demo year bands for university-held halls only (not live scraped prices).
+    if (place.type !== "university-halls" && place.origin !== "university") return null;
+    const current = Number(place.rentWeekly || 0);
+    if (!current) return null;
+    return [
+      { year: "2026/27", rentWeekly: current, current: true },
+      { year: "2025/26", rentWeekly: Math.round(current * 0.96) },
+      { year: "2024/25", rentWeekly: Math.round(current * 0.92) }
+    ];
+  }
+
   function enrichAccommodation(place, universityId) {
-    const uniMeta = universityId ? place.universities[universityId] : null;
-    const primaryUniId = universityId || Object.keys(place.universities)[0];
-    const primary = place.universities[primaryUniId];
-    const university = UNIVERSITIES.find((u) => u.id === primaryUniId);
-    const nearestStore = (place.nearby.stores || [])
+    const uniKeys = place.universities ? Object.keys(place.universities) : [];
+    const uniMeta = universityId && place.universities ? place.universities[universityId] : null;
+    const primaryUniId = universityId && place.universities?.[universityId]
+      ? universityId
+      : uniKeys[0];
+    const primary = primaryUniId ? place.universities?.[primaryUniId] : null;
+    const university = primaryUniId ? UNIVERSITIES.find((u) => u.id === primaryUniId) : null;
+    const nearestStore = (place.nearby?.stores || [])
       .slice()
       .sort((a, b) => a.walkMins - b.walkMins)[0];
     const storeWalk = nearestStore ? nearestStore.walkMins : null;
+    const yearPrices = academicYearPrices(place);
+    const isStudent = place.source === "student" || String(place.id || "").startsWith("custom-");
 
     return {
       ...place,
-      image: pickImage(place),
+      source: isStudent ? "student" : place.source || "catalog",
+      origin: place.origin || (place.type === "university-halls" ? "university" : "catalog"),
+      image: place.image || pickImage(place),
       typeLabel: TYPE_LABELS[place.type] || place.type,
-      rentMonthly: Math.round(place.rentWeekly * 4.333),
+      yearPrices,
+      rentMonthly: Math.round(Number(place.rentWeekly || 0) * 4.333),
       university: university
         ? {
             id: university.id,
@@ -263,7 +286,36 @@
     return item;
   }
 
-  function compare(ids, query = {}) {
+  function enrichExternal(place, query = {}) {
+    if (!place) return null;
+    const universityId = String(query.university || "").trim().toLowerCase();
+    const budgetWeekly = Number(query.budget || 0);
+    const item = enrichAccommodation(place, universityId || null);
+    const hasCommute = Boolean(place.universities && Object.keys(place.universities).length);
+    item.matchScore = hasCommute
+      ? matchScore(place, {
+          universityId,
+          budgetWeekly,
+          maxWalk: 0,
+          needStores: false
+        })
+      : Math.max(
+          0,
+          Math.min(
+            100,
+            55 +
+              (budgetWeekly > 0 && place.rentWeekly <= budgetWeekly ? 20 : 0) +
+              (place.billsIncluded ? 5 : 0) -
+              (budgetWeekly > 0 && place.rentWeekly > budgetWeekly
+                ? Math.min(30, (place.rentWeekly - budgetWeekly) / 2)
+                : 0)
+          )
+        );
+    item.budget = budgetStatus(place.rentWeekly, budgetWeekly);
+    return item;
+  }
+
+  function compare(ids, query = {}, extras = []) {
     const list = (Array.isArray(ids) ? ids : String(ids || "").split(","))
       .map((x) => String(x).trim())
       .filter(Boolean)
@@ -271,21 +323,12 @@
 
     const universityId = String(query.university || "").trim().toLowerCase();
     const budgetWeekly = Number(query.budget || 0);
+    const extraById = new Map((extras || []).map((p) => [p.id, p]));
 
     const items = list
-      .map((id) => ACCOMMODATIONS.find((a) => a.id === id))
+      .map((id) => ACCOMMODATIONS.find((a) => a.id === id) || extraById.get(id))
       .filter(Boolean)
-      .map((place) => {
-        const item = enrichAccommodation(place, universityId || null);
-        item.matchScore = matchScore(place, {
-          universityId,
-          budgetWeekly,
-          maxWalk: 0,
-          needStores: false
-        });
-        item.budget = budgetStatus(place.rentWeekly, budgetWeekly);
-        return item;
-      });
+      .map((place) => enrichExternal(place, { university: universityId, budget: budgetWeekly }));
 
     return { items };
   }
@@ -294,6 +337,7 @@
     getMeta,
     search,
     getAccommodation,
+    enrichExternal,
     compare,
     UNIVERSITIES,
     REGIONS,

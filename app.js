@@ -1,5 +1,6 @@
 const catalog = window.StayCompareCatalog;
 const auth = window.StayCompareAuth;
+const library = window.StayCompareLibrary;
 
 const LS_GUEST_SAVED = "staycompare_guest_saved_v2";
 const LS_GUEST_COMPARE = "staycompare_guest_compare_v2";
@@ -13,9 +14,11 @@ const state = {
   user: null,
   savedIds: [],
   compareIds: [],
+  customPlaces: [],
   prefs: loadJson(LS_PREFS, {}),
   activeId: null,
   pendingSaveId: null,
+  pendingCompareAfterAdd: false,
   map: null,
   savedMap: null,
   markers: [],
@@ -73,8 +76,42 @@ const els = {
   logoutBtn: document.getElementById("logoutBtn"),
   accountSignupBtn: document.getElementById("accountSignupBtn"),
   accountLoginBtn: document.getElementById("accountLoginBtn"),
-  accountNavBtn: document.getElementById("accountNavBtn")
+  accountNavBtn: document.getElementById("accountNavBtn"),
+  addPlaceForm: document.getElementById("addPlaceForm"),
+  addLink: document.getElementById("addLink"),
+  fetchPreviewBtn: document.getElementById("fetchPreviewBtn"),
+  previewNote: document.getElementById("previewNote"),
+  previewBox: document.getElementById("previewBox"),
+  previewImage: document.getElementById("previewImage"),
+  previewTitle: document.getElementById("previewTitle"),
+  previewDesc: document.getElementById("previewDesc"),
+  addName: document.getElementById("addName"),
+  addRent: document.getElementById("addRent"),
+  addType: document.getElementById("addType"),
+  addRegion: document.getElementById("addRegion"),
+  addImage: document.getElementById("addImage"),
+  addNotes: document.getElementById("addNotes"),
+  addBills: document.getElementById("addBills"),
+  addAlsoCompare: document.getElementById("addAlsoCompare"),
+  customList: document.getElementById("customList"),
+  customEmpty: document.getElementById("customEmpty")
 };
+
+function refreshCustomPlaces() {
+  state.customPlaces = library?.list?.() || [];
+}
+
+function resolvePlace(id) {
+  const ctx = queryContext();
+  if (String(id).startsWith("custom-")) {
+    const custom = library.get(id);
+    return custom ? catalog.enrichExternal(custom, ctx) : null;
+  }
+  const fromCatalog = catalog.getAccommodation(id, ctx);
+  if (fromCatalog) return fromCatalog;
+  const custom = library.get(id);
+  return custom ? catalog.enrichExternal(custom, ctx) : null;
+}
 
 function loadJson(key, fallback) {
   try {
@@ -237,7 +274,14 @@ function placeCardHtml(place, { index = 0 } = {}) {
         <div class="meta-row">
           <span class="chip">Match ${place.matchScore ?? "—"}</span>
           ${budgetChip(place.budget)}
-          ${saved ? '<span class="chip accent">Saved</span>' : ""}
+          ${
+            place.source === "student"
+              ? '<span class="chip accent">Your link</span>'
+              : place.origin === "university" || place.type === "university-halls"
+                ? '<span class="chip good">Uni default</span>'
+                : ""
+          }
+          ${saved ? '<span class="chip accent">Shortlisted</span>' : ""}
           ${uniShare >= 75 ? '<span class="chip good">Popular with your uni</span>' : ""}
         </div>
         <div class="place-stats">
@@ -288,10 +332,7 @@ function queryContext() {
 
 function fetchSavedPlaces() {
   if (!state.savedIds.length) return [];
-  const ctx = queryContext();
-  return state.savedIds
-    .map((id) => catalog.getAccommodation(id, ctx))
-    .filter(Boolean);
+  return state.savedIds.map((id) => resolvePlace(id)).filter(Boolean);
 }
 
 function renderSaved() {
@@ -316,7 +357,7 @@ function renderCompare() {
   }
 
   const ctx = queryContext();
-  const { items } = catalog.compare(state.compareIds, ctx);
+  const { items } = catalog.compare(state.compareIds, ctx, state.customPlaces);
 
   els.compareEmpty.style.display = items.length ? "none" : "block";
   if (!items.length) {
@@ -514,6 +555,35 @@ function openPlaceProfile(place) {
       }
     </div>
 
+    ${
+      place.link
+        ? `<div class="profile-section">
+            <h3>Listing link</h3>
+            <p><a href="${escapeHtml(place.link)}" target="_blank" rel="noopener">${escapeHtml(place.link)}</a></p>
+          </div>`
+        : ""
+    }
+
+    ${
+      place.yearPrices?.length
+        ? `<div class="profile-section">
+            <h3>University halls · recent years</h3>
+            <p class="muted" style="margin:0 0 8px;">Sample year bands for comparison (prototype data, not a live scrape).</p>
+            <div class="year-prices">
+              ${place.yearPrices
+                .map(
+                  (yp) => `
+                <div class="year-price-row ${yp.current ? "is-current" : ""}">
+                  <span>${escapeHtml(yp.year)}${yp.current ? " · current" : ""}</span>
+                  <span>${money(yp.rentWeekly)}/wk</span>
+                </div>`
+                )
+                .join("")}
+            </div>
+          </div>`
+        : ""
+    }
+
     <div class="profile-section">
       <h3>Why it might suit you</h3>
       <ul class="hint-list">
@@ -560,6 +630,11 @@ function openPlaceProfile(place) {
       <button type="button" class="btn secondary" data-action="compare" data-id="${place.id}">
         ${inCompare(place.id) ? "In compare" : "Add to compare"}
       </button>
+      ${
+        place.source === "student"
+          ? `<button type="button" class="btn danger-soft" data-action="remove-custom" data-id="${place.id}">Remove linked place</button>`
+          : ""
+      }
     </div>
   `;
 
@@ -569,7 +644,7 @@ function openPlaceProfile(place) {
 }
 
 function loadPlaceProfile(id) {
-  const place = catalog.getAccommodation(id, queryContext());
+  const place = resolvePlace(id);
   if (!place) {
     showToast("Could not open profile");
     return;
@@ -594,6 +669,7 @@ function setView(name) {
     renderSaved();
     updateMaps();
   }
+  if (name === "add") renderCustomList();
   if (name === "compare") renderCompare();
   if (name === "account") renderAccountView();
   if (name === "search") {
@@ -656,13 +732,24 @@ function runSearch(event) {
     sort: els.sortBy.value || "best"
   });
 
-  state.results = data.results || [];
+  const ctx = {
+    university: els.university.value,
+    budget: els.budget.value || ""
+  };
+  refreshCustomPlaces();
+  const customForRegion = state.customPlaces
+    .filter((p) => !els.region.value || p.region === els.region.value)
+    .filter((p) => !els.typeFilter.value || p.type === els.typeFilter.value)
+    .map((p) => catalog.enrichExternal(p, ctx))
+    .filter(Boolean);
+
+  state.results = [...customForRegion, ...(data.results || [])];
   state.region = data.region;
   state.university = data.university;
 
   if (!state.results.length) {
     els.resultsEmpty.textContent =
-      "No accommodations matched those filters. Try widening budget or walk time.";
+      "No accommodations matched those filters. Try widening budget or walk time, or add a place from a link.";
   }
 
   renderResults();
@@ -693,6 +780,20 @@ function handleActionClick(event) {
   if (action === "save") toggleSaved(id);
   if (action === "compare") toggleCompare(id);
   if (action === "profile") loadPlaceProfile(id);
+  if (action === "remove-custom") {
+    library.remove(id);
+    state.savedIds = state.savedIds.filter((x) => x !== id);
+    state.compareIds = state.compareIds.filter((x) => x !== id);
+    persistLists();
+    refreshCustomPlaces();
+    updateCounts();
+    renderCustomList();
+    renderSaved();
+    renderCompare();
+    updateMaps();
+    closeDrawer();
+    showToast("Linked place removed");
+  }
 
   if (
     els.profileDrawer.classList.contains("is-open") &&
@@ -787,6 +888,7 @@ function applyUserDefaults() {
 
 function onAuthSuccess(user) {
   state.user = user;
+  library.mergeGuestIntoUser();
 
   // Merge guest shortlist into the account once
   const guestSaved = loadJson(LS_GUEST_SAVED, []);
@@ -799,11 +901,13 @@ function onAuthSuccess(user) {
   saveJson(LS_GUEST_COMPARE, []);
 
   loadListsFromUserOrGuest();
+  refreshCustomPlaces();
   applyUserDefaults();
   persistPrefs();
   updateCounts();
   renderAuthChrome();
   renderAccountView();
+  renderCustomList();
   renderResults();
   renderSaved();
   renderCompare();
@@ -828,9 +932,13 @@ async function init() {
   state.meta = catalog.getMeta();
   state.user = auth.getSessionUser();
   loadListsFromUserOrGuest();
+  refreshCustomPlaces();
 
   els.region.innerHTML = state.meta.regions
     .map((r) => `<option value="${r.id}">${escapeHtml(r.label || r.name)}</option>`)
+    .join("");
+  els.addRegion.innerHTML = state.meta.regions
+    .map((r) => `<option value="${r.id}">${escapeHtml(r.name)}</option>`)
     .join("");
 
   if (state.prefs.region) els.region.value = state.prefs.region;
@@ -843,6 +951,7 @@ async function init() {
   if (state.prefs.needStores) els.needStores.checked = true;
   if (state.prefs.type) els.typeFilter.value = state.prefs.type;
   if (state.prefs.sort) els.sortBy.value = state.prefs.sort;
+  if (els.region.value) els.addRegion.value = els.region.value;
 
   fillUniversitySelect(els.signupUniversity, els.university.value);
   fillUniversitySelect(els.profileUniversity, state.user?.universityId || els.university.value);
@@ -850,6 +959,7 @@ async function init() {
   updateCounts();
   renderAuthChrome();
   renderAccountView();
+  renderCustomList();
   ensureMaps();
   renderSaved();
   renderCompare();
@@ -955,14 +1065,133 @@ els.logoutBtn.addEventListener("click", () => {
   auth.logout();
   state.user = null;
   loadListsFromUserOrGuest();
+  refreshCustomPlaces();
   updateCounts();
   renderAuthChrome();
   renderAccountView();
+  renderCustomList();
   renderResults();
   renderSaved();
   renderCompare();
   updateMaps();
   showToast("Logged out");
+});
+
+function renderCustomList() {
+  refreshCustomPlaces();
+  const places = state.customPlaces
+    .map((p) => catalog.enrichExternal(p, queryContext()))
+    .filter(Boolean);
+  els.customEmpty.style.display = places.length ? "none" : "block";
+  els.customList.innerHTML = places.map((p, i) => placeCardHtml(p, { index: i })).join("");
+}
+
+async function fetchLinkPreview() {
+  const url = els.addLink.value.trim();
+  if (!url) {
+    showToast("Paste a listing link first");
+    return;
+  }
+  els.previewNote.textContent = "Fetching preview…";
+  try {
+    const res = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`);
+    const data = await res.json();
+    if (!res.ok) {
+      els.previewNote.textContent = data.error || "Preview unavailable — fill details manually.";
+      return;
+    }
+    if (data.title && !els.addName.value) els.addName.value = data.title;
+    if (data.image) els.addImage.value = data.image;
+    if (data.rentWeekly && !els.addRent.value) els.addRent.value = data.rentWeekly;
+    if (data.description && !els.addNotes.value) els.addNotes.value = data.description;
+    els.previewBox.hidden = false;
+    els.previewTitle.textContent = data.title || "Preview ready";
+    els.previewDesc.textContent = data.description || "";
+    if (data.image) {
+      els.previewImage.src = data.image;
+      els.previewImage.hidden = false;
+    } else {
+      els.previewImage.removeAttribute("src");
+      els.previewImage.hidden = true;
+    }
+    els.previewNote.textContent = data.note || "Check the rent before saving.";
+  } catch {
+    els.previewNote.textContent =
+      "Preview needs the local server (npm run dev). On GitHub Pages, enter name, rent, and image manually.";
+  }
+}
+
+function submitAddedPlace({ alsoCompare = false } = {}) {
+  const regionId = els.addRegion.value || els.region.value;
+  const regionMeta = state.meta.regions.find((r) => r.id === regionId);
+  const universityId = els.university.value || state.user?.universityId || "";
+  const walkGuess = Number(els.maxWalk.value || 20);
+
+  const universities = {};
+  if (universityId) {
+    universities[universityId] = {
+      distanceKm: +(walkGuess / 13).toFixed(1),
+      walkMins: walkGuess,
+      cycleMins: Math.max(3, Math.round(walkGuess / 2.5)),
+      uniShare: 40
+    };
+  }
+
+  const result = library.add({
+    name: els.addName.value,
+    link: els.addLink.value,
+    rentWeekly: els.addRent.value,
+    type: els.addType.value,
+    region: regionId,
+    city: regionMeta?.name || "",
+    area: "Linked listing",
+    image: els.addImage.value,
+    description: els.addNotes.value,
+    billsIncluded: els.addBills.checked,
+    universities,
+    lat: regionMeta?.lat || null,
+    lng: regionMeta?.lng || null
+  });
+
+  if (!result.ok) {
+    showToast(result.error || "Could not save place");
+    return;
+  }
+
+  refreshCustomPlaces();
+  if (!isSaved(result.place.id)) {
+    state.savedIds = [result.place.id, ...state.savedIds];
+  }
+  if (alsoCompare && !inCompare(result.place.id)) {
+    if (state.compareIds.length >= 4) state.compareIds = state.compareIds.slice(0, 3);
+    state.compareIds = [...state.compareIds, result.place.id];
+  }
+  persistLists();
+  updateCounts();
+  renderCustomList();
+  renderSaved();
+  renderCompare();
+  updateMaps();
+
+  els.addPlaceForm.reset();
+  els.previewBox.hidden = true;
+  els.previewNote.textContent = "We’ll try Open Graph title/image only. You confirm the weekly rent.";
+  if (regionId) els.addRegion.value = regionId;
+
+  showToast(alsoCompare ? "Added to shortlist + compare" : "Added to your shortlist");
+  setView(alsoCompare ? "compare" : "saved");
+}
+
+els.fetchPreviewBtn.addEventListener("click", fetchLinkPreview);
+els.addAlsoCompare.addEventListener("click", () => {
+  state.pendingCompareAfterAdd = true;
+  if (els.addPlaceForm.reportValidity()) {
+    submitAddedPlace({ alsoCompare: true });
+  }
+});
+els.addPlaceForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  submitAddedPlace({ alsoCompare: false });
 });
 
 init();

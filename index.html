@@ -22,7 +22,8 @@
       <div class="header-actions">
         <nav class="nav" aria-label="Primary">
           <button type="button" class="nav-btn is-active" data-view="search">Search</button>
-          <button type="button" class="nav-btn" data-view="saved">Saved <span id="savedCount" class="count-chip">0</span></button>
+          <button type="button" class="nav-btn" data-view="add">Add place</button>
+          <button type="button" class="nav-btn" data-view="saved">My shortlist <span id="savedCount" class="count-chip">0</span></button>
           <button type="button" class="nav-btn" data-view="compare">Compare <span id="compareCount" class="count-chip">0</span></button>
           <button type="button" class="nav-btn" data-view="account" id="accountNavBtn">Account</button>
         </nav>
@@ -36,9 +37,9 @@
     <section id="view-search" class="view is-active">
       <div class="hero">
         <div class="shell hero-inner">
-          <p class="eyebrow">Student stays · by region</p>
+          <p class="eyebrow">Store · compare · decide</p>
           <h1 class="brand-hero">StayCompare</h1>
-          <p class="hero-lead">Search a region, open accommodation profiles, save favourites on the map, and compare them against your uni, budget, and what’s nearby.</p>
+          <p class="hero-lead">Paste links to places you like, keep university halls as defaults, and compare rent, commute, and nearby extras in one shortlist.</p>
 
           <form id="searchForm" class="search-panel" autocomplete="off">
             <div class="search-grid">
@@ -116,11 +117,88 @@
       </div>
     </section>
 
+    <!-- ADD PLACE FROM LINK -->
+    <section id="view-add" class="view">
+      <div class="shell section-head">
+        <h2>Add a place you found</h2>
+        <p class="muted">Paste a listing link, pull a preview image/title when possible, then save the rent yourself so comparisons stay accurate.</p>
+      </div>
+      <div class="shell add-layout">
+        <form id="addPlaceForm" class="account-card add-card" autocomplete="off">
+          <label class="field">
+            <span>Listing link</span>
+            <div class="link-row">
+              <input id="addLink" type="url" placeholder="https://…" />
+              <button type="button" class="btn secondary" id="fetchPreviewBtn">Get preview</button>
+            </div>
+            <p class="muted tiny" id="previewNote">We’ll try Open Graph title/image only. You confirm the weekly rent.</p>
+          </label>
+
+          <div id="previewBox" class="preview-box" hidden>
+            <img id="previewImage" alt="" />
+            <div>
+              <strong id="previewTitle">Preview</strong>
+              <p class="muted" id="previewDesc"></p>
+            </div>
+          </div>
+
+          <div class="search-grid">
+            <label class="field">
+              <span>Name</span>
+              <input id="addName" required maxlength="120" placeholder="e.g. Clifton shared house" />
+            </label>
+            <label class="field">
+              <span>Weekly rent (£)</span>
+              <input id="addRent" type="number" min="1" step="1" required placeholder="e.g. 145" />
+            </label>
+            <label class="field">
+              <span>Type</span>
+              <select id="addType">
+                <option value="private-rent">Private rental</option>
+                <option value="private-halls">Private student halls</option>
+                <option value="shared-house">Shared student house</option>
+                <option value="studio">Studio</option>
+                <option value="university-halls">University halls</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Region</span>
+              <select id="addRegion"></select>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Image URL (optional)</span>
+            <input id="addImage" type="url" placeholder="Filled from preview when available" />
+          </label>
+          <label class="field">
+            <span>Notes</span>
+            <textarea id="addNotes" rows="3" maxlength="600" placeholder="Commute, deposit, bills, why you like it…"></textarea>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="addBills" />
+            <span>Bills included</span>
+          </label>
+          <div class="card-actions">
+            <button type="submit" class="btn primary">Save to my shortlist</button>
+            <button type="button" class="btn ghost" id="addAlsoCompare">Save + compare</button>
+          </div>
+        </form>
+
+        <div class="account-card">
+          <h3>Your linked places</h3>
+          <p class="muted">These are accommodations you added yourself — separate from the university default catalogue.</p>
+          <div id="customList" class="results-list"></div>
+          <div id="customEmpty" class="empty-state">No linked places yet. Paste a URL to start your shortlist.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- SAVED -->
     <section id="view-saved" class="view">
       <div class="shell section-head">
-        <h2>Saved places</h2>
-        <p class="muted" id="savedLead">Your shortlist, pinned on the map so you can see how they sit relative to campus and each other.</p>
+        <h2>My shortlist</h2>
+        <p class="muted" id="savedLead">Places you saved or linked yourself, pinned on the map relative to campus.</p>
       </div>
       <div class="shell workspace">
         <div class="list-pane">
@@ -252,6 +330,7 @@
   <script src="./data.js"></script>
   <script src="./catalog.js"></script>
   <script src="./auth.js"></script>
+  <script src="./library.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
