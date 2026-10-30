@@ -42,6 +42,12 @@ Optional Express API routes still exist (`/api/meta`, `/api/search`, etc.) for l
 - `auth.js` — signup, login, profile (LocalStorage)
 - Leaflet + OpenStreetMap for maps
 
+## Data sources
+
+Listings in this project are **demo/sample seed data** in `data.js` (illustrative places for the prototype UI).
+
+This project does **not** use Homemove/Homedata, or any other commercial property listings API.
+
 ## Status
 
 Early-stage prototype with sample UK student-city data. Designed to show the product concept end-to-end, including account profiles for shortlists.
