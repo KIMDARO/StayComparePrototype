@@ -6,14 +6,13 @@ Works on **GitHub Pages** (static) and locally with Node.
 
 ## What it does
 
-- **Search a region** across 16 UK student cities (including London, Edinburgh, Manchester, Nottingham, and more)
-- Browse **university halls**, **private student halls**, **shared houses**, **private rentals**, and **studios**
+- **Add places you find** by pasting a listing link (preview title/image when available; you confirm weekly rent)
+- Keep a **shortlist** of linked + saved places and compare them side by side
+- Browse **default university halls** and other sample catalogue places across 16 UK student cities
+- See **recent-year rent bands** on university halls (prototype/sample year pricing, not live scrapes)
 - Each listing shows a **photo** on cards, compare view, and the place profile
 - **Pick your university** so listings are scored against campus distance and how many students from your uni usually live there
-- **Open accommodation profiles** with rent, amenities, commute, and nearby stores / cafés / transport
-- **Sign up / log in** to a browser-based profile (name, uni, budget, bio)
-- **Save places** to your account and see them pinned on the map
-- **Compare up to 4 stays** side-by-side: rent, walk/cycle to campus, store access, budget fit, and uni popularity
+- **Sign up / log in** to keep shortlists and linked places on your profile (browser LocalStorage)
 
 ## GitHub Pages
 
@@ -41,6 +40,15 @@ Optional Express API routes still exist (`/api/meta`, `/api/search`, etc.) for l
 - `catalog.js` — search / score / compare logic (browser + Node)
 - `auth.js` — signup, login, profile (LocalStorage)
 - Leaflet + OpenStreetMap for maps
+
+## Data sources
+
+- Catalogue listings are **demo/sample seed data** in `data.js`
+- Student-added places are stored in the browser from links + details you enter
+- Link preview only reads public Open Graph / page title / image tags (when the local server can reach the URL). Weekly rent is confirmed by the student.
+- University halls show **sample academic-year price bands** for comparison — not scraped commercial datasets
+
+This project does **not** use Homemove/Homedata, or any other commercial property listings API.
 
 ## Status
 
